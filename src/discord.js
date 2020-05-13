@@ -23,11 +23,10 @@ function createEmbed(repo, branch, url, commits, size, report) {
 
     var embed = new discord.RichEmbed()
                 .setColor(getEmbedColor(report))
-                .setAuthor(latest.committer.login, latest.committer.avatar_url)
                 .setURL(url)
                 .setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
                 .setDescription(getChangeLog(commits, size))
-                .setTimestamp(Date.parse(latest.commit.committer.date));
+                .setTimestamp(Date.parse(latest.commit.timestamp));
 
     if (report.tests.length > 0) {
         appendTestResults(embed, report);
@@ -46,7 +45,7 @@ function getChangeLog(commits, size) {
         }
 
         var commit = commits[i];
-        var sha = commit.sha.substring(0, 6);
+        var sha = commit.id.substring(0, 6);
         var message = commit.message.length > 32 ? commit.message.substring(0, 32): commit.message;
         changelog += `\`${sha}\` ${message} (@${commit.committer.login})\n`;
     }
