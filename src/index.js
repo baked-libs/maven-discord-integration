@@ -7,10 +7,12 @@ const webhook = require('../src/discord.js');
 async function run() {
 	const repository = github.context.repo;
 	const payload = github.context.payload;
-  	const commits = payload.commits;
-    	const size = payload.size;
-    	const diff = `https://github.com/${repository}/compare/${payload.before}...${payload.after}`;
+	const commits = payload.commits;
+	const size = payload.size;
+	const diff = `https://github.com/${repository}/compare/${payload.before}...${payload.after}`;
 	const branch = payload.ref.split('/')[payload.ref.split('/').length - 1];
+
+	console.log(`Received payload ${JSON.stringify(payload, null, 2)}`);
 
 	console.log(`Received ${commits.length}/${size} commits...`);
 
