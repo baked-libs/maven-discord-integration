@@ -4,10 +4,15 @@ const xml = require('xml-library');
 
 module.exports.start = test;
 
-function test() {
+function test(skip) {
 	console.log("Running 'mvn clean test'...");
-
+	var args = ["test", "-B"];
+	if (skip) {
+		args.push("-DskipTests");
+	}
+	
 	var maven = process.spawn("mvn", ["test", "-B"], { shell: true });
+	
 
 	maven.childProcess.stdout.on('data', data => console.log(data.toString('utf8')));
 	maven.childProcess.stderr.on('data', data => console.log(data.toString('utf8')));
