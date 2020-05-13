@@ -26,7 +26,7 @@ function createEmbed(repo, branch, url, commits, size, report) {
                 .setURL(url)
                 .setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
                 .setDescription(getChangeLog(commits, size))
-                .setTimestamp(Date.parse(latest.commit.timestamp));
+                .setTimestamp(Date.parse(latest.timestamp));
 
     if (report.tests.length > 0) {
         appendTestResults(embed, report);
