@@ -1,0 +1,18 @@
+name: 'fancier-discord-webhooks'
+description: 'This GitHub Action can produce fancy and more meaningful discord messages for your commits. It includes Test results and coverage.'
+
+inputs:
+  id:
+    description: The Discord Webhook id
+    required: true
+  token:
+    description: The Discord Webhook token
+    required: true
+
+runs:
+  using: 'node12'
+  main: 'src/index.js'
+  
+branding:
+  icon: check-circle
+  color: blue

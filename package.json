@@ -1,0 +1,35 @@
+{
+  "name": "fancier-discord-webhooks",
+  "version": "1.0.0",
+  "description": "This GitHub Action can produce fancy and more meaningful discord messages for your commits. It includes Test results and coverage.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Slimefun/discord-webhook.git"
+  },
+  "keywords": [
+    "github",
+    "action",
+    "discord",
+    "webhook",
+    "junit",
+    "tests",
+    "coverage"
+  ],
+  "author": "TheBusyBiscuit",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/Slimefun/discord-webhook/issues"
+  },
+  "homepage": "https://github.com/Slimefun/discord-webhook#readme",
+  "dependencies": {
+    "@actions/core": "^1.2.3",
+    "@actions/github": "^2.1.1",
+    "discord.js": "^11.5.1",
+    "child-process-promise": "^2.2.1",
+    "xml-library": "0.1.0"
+  }
+}
