@@ -26,7 +26,7 @@ function aggregate(err) {
 			evaluation.tests = results[0].concat(results[1]);
 			evaluation.coverage = results[2];
 
-			evaluation.time = evaluation.tests.reduce((a, b) => {
+			evaluation.time = evaluation.tests.length == 0 ? 0 : evaluation.tests.reduce((a, b) => {
 				var x = a.time ? parseFloat(a.time): a;
 				var y = b.time ? parseFloat(b.time): b;
 				return x + y;
