@@ -17,6 +17,7 @@ function test() {
 
 function aggregate(err) {
 	console.log("Aggregating test results...");
+	console.log(err);
 	var evaluation = {
 		status: (err ? "FAILURE": "SUCCESS")
 	}
