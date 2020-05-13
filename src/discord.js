@@ -46,8 +46,8 @@ function getChangeLog(commits, size) {
 
         var commit = commits[i];
         var sha = commit.id.substring(0, 6);
-        var message = commit.message.length > 32 ? commit.message.substring(0, 32): commit.message;
-        changelog += `\`${sha}\` ${message} (@${commit.committer.login})\n`;
+        var message = commit.message.length > 32 ? (commit.message.substring(0, 32) + "..."): commit.message;
+        changelog += `\`${sha}\` ${message} (@${commit.committer.name})\n`;
     }
 
     return changelog;

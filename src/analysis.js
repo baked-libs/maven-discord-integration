@@ -12,7 +12,7 @@ function test() {
 	maven.childProcess.stdout.on('data', data => console.log(data.toString('utf8')));
 	maven.childProcess.stderr.on('data', data => console.log(data.toString('utf8')));
 
-	return maven.then(aggregate, aggregate);
+	return maven.then(() => aggregate(), aggregate);
 }
 
 function aggregate(err) {
