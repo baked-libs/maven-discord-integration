@@ -51,7 +51,8 @@ module.exports.parseXML = (xml, callback) => {
     let doc = xml
     .replace(/(\r?\n|\r)|(<\?.*\?>)|(<!--.*-->)/g, "")
     .replace(/\t/g, " ")
-    .replace(/\/>/g, "></>");
+    .replace(/\/>/g, "></>")
+	.replace(/<!\[CDATA\[(\s*(?:.(?<!\]\]>)\s*)*)\]\]>/g, (str, cap) => cap.replace(/>/g, "&gt;").replace(/</g, "&lt;"));
 
     /** Crawl through the entire document, character by character */
     while (i < doc.length) {

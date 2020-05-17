@@ -30,6 +30,6 @@
     "@actions/github": "^2.1.1",
     "discord.js": "^11.5.1",
     "child-process-promise": "^2.2.1",
-    "xml-library": "0.1.0"
+    "xml-library": "0.2.0"
   }
 }
