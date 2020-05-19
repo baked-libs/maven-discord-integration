@@ -56,7 +56,7 @@ function getChangeLog(commits, size) {
 
 function getEmbedColor(report) {
     if (report.status === "FAILURE") {
-        return 0xFF0000;
+        return 0xE80000;
     }
 
     if (report.tests.length > 0) {
@@ -116,5 +116,5 @@ function appendTestResults(embed, report) {
         }
     }
 
-    embed.addField(`Unit Tests (~${report.coverage}% coverage):`, tests);
+    embed.addField("Unit Tests" + (failures > 0 ? "": ` (~${report.coverage}% coverage):`), tests);
 }

@@ -24,7 +24,9 @@ The standard webhook from GitHub to Discord just dumps the commit messages right
 ![old webhook](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/old-webhook.png)
 
 ### New and improved Webhook
-![new webhook](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/new-webhook.png)
+![tests passed](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/test-passed.png)
+![tests skipped](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/test-skipped.png)
+![tests failed](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/test-failed.png)
 
 ### Changes
 * Removed the obnoxious author name and image at the top (may be a toggle in the future)
