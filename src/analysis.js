@@ -5,14 +5,13 @@ const xml = require('xml-library');
 module.exports.start = test;
 
 function test(skip) {
-	console.log("Running 'mvn clean test'...");
+	console.log("Running 'mvn test'...");
 	var args = ["test", "-B"];
 	if (skip) {
 		args.push("-DskipTests");
 	}
-	
-	var maven = process.spawn("mvn", ["test", "-B"], { shell: true });
-	
+
+	var maven = process.spawn("mvn", args, { shell: true });
 
 	maven.childProcess.stdout.on('data', data => console.log(data.toString('utf8')));
 	maven.childProcess.stderr.on('data', data => console.log(data.toString('utf8')));
@@ -23,6 +22,7 @@ function test(skip) {
 function aggregate(err) {
 	console.log("Aggregating test results...");
 	console.log(err);
+
 	var evaluation = {
 		status: (err ? "FAILURE": "SUCCESS")
 	}
@@ -143,6 +143,9 @@ function readTestSuite(suite) {
 				else if (suite.elements[key].getChild("failure")) {
 					status = "FAILED";
 				}
+				else if (suite.elements[key].getChild("error")) {
+					status = "ERROR";
+				}
 
 				tests.push({
 					name: path[path.length - 1] + '.' +  attributes.name,
@@ -156,12 +159,4 @@ function readTestSuite(suite) {
 
 		resolve(tests);
 	});
-}
-
-function onSuccess() {
-
-}
-
-function onFailure() {
-
 }

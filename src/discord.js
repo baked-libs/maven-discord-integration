@@ -66,7 +66,7 @@ function getEmbedColor(report) {
         for (var i in report.tests) {
             var status = report.tests[i].status;
             if (status === "SKIPPED") skipped++;
-            if (status === "FAILURE") failures++;
+            if (status === "FAILURE" || status === "ERROR") failures++;
         }
 
         if (failures > 0) {
@@ -75,9 +75,12 @@ function getEmbedColor(report) {
         if (skipped > 0) {
             return 0xFF9900;
         }
-    }
 
-    return 0x00FF00;
+        return 0x00FF00;
+    }
+    else {
+        return 0x005511;
+    }
 }
 
 function appendTestResults(embed, report) {
