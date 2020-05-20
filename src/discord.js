@@ -79,7 +79,7 @@ function getEmbedColor(report) {
         return 0x00FF00;
     }
     else {
-        return 0x005511;
+        return 0x00BB22;
     }
 }
 
