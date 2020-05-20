@@ -30,5 +30,5 @@ try {
 }
 
 function isSkipped(commit) {
-	return commit.message.toLowerCase().includes("[ci skip]");
+	return commit.message.toLowerCase().includes("[skip]");
 }
