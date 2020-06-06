@@ -14,4 +14,5 @@ runs:
   main: 'src/index.js'
   
 branding:
+  icon: activity
   color: black
