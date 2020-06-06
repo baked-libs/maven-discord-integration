@@ -1,5 +1,5 @@
-name: 'fancier-discord-webhooks'
-description: 'This GitHub Action sends  fancy and more meaningful discord messages for your commits. It includes Test results and coverage.'
+name: 'clasic-discord-webhooks'
+description: 'This GitHub Action sends  fancy and more meaningful discord messages for your commits.'
 
 inputs:
   id:
