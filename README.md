@@ -50,4 +50,22 @@ The color of the embed changes depending on the compiler and test results. Here'
 | green | The build was successful, no tests failed and none were skipped. |
 
 ## Example setup
-TODO
+
+```yml
+name: Discord Webhook
+
+on: [push]
+  
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v1
+    - name: Run Discord Webhook
+      uses: thomasbnt/discord-webhook@master
+      with:
+        id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+        token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+```
+

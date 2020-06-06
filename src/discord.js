@@ -24,8 +24,8 @@ function createEmbed(repo, branch, url, commits, size, report) {
 
     var embed = new discord.RichEmbed()
                 .setColor(getEmbedColor(report))
-                .setURL(url)
-                .setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
+                //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
+                .setTitle(size + (size == 1 ? " Commit a été ajouté" : " Commits ont été ajoutés") + " en " + branch)
                 .setDescription(getChangeLog(commits, size))
                 .setTimestamp(Date.parse(latest.timestamp));
 
@@ -41,14 +41,14 @@ function getChangeLog(commits, size) {
 
     for (var i in commits) {
         if (i > 3) {
-            changelog += `+ ${size - i} more...\n`;
+            changelog += `+ ${size - i} plus...\n`;
             break;
         }
 
         var commit = commits[i];
         var sha = commit.id.substring(0, 6);
         var message = commit.message.length > MAX_MESSAGE_LENGTH ? (commit.message.substring(0, MAX_MESSAGE_LENGTH) + "..."): commit.message;
-        changelog += `[\`${sha}\`](${commit.url}) ${message} (@${commit.author.username})\n`;
+        changelog += `\`${sha}\` ${message} \n`;
     }
 
     return changelog;
@@ -99,19 +99,19 @@ function appendTestResults(embed, report) {
     var tests = "";
 
     if (passes > 0) {
-        tests += ` :green_circle: ${passes} Tests passed`;
+        tests += ` :green_circle: ${passes} Tests réussis`;
     }
 
     if (skipped > 0) {
-        tests += ` :yellow_circle: ${skipped} Tests were skipped`;
+        tests += ` :yellow_circle: ${skipped} Tests ignorées`;
     }
 
     if (failures.length > 0) {
-        tests += ` :red_circle: ${failures.length} Tests failed\n`;
+        tests += ` :red_circle: ${failures.length} Tests échoués\n`;
 
         for (var i in failures) {
             if (i > 2) {
-                tests += `\n+ ${failures.length - i} more...`;
+                tests += `\n+ ${failures.length - i} plus...`;
                 break;
             }
 
