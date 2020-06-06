@@ -13,8 +13,8 @@ function test(skip) {
 
 	var maven = process.spawn("mvn", args, { shell: true });
 
-	maven.childProcess.stdout.on('data', data => console.log(data.toString('utf8')));
-	maven.childProcess.stderr.on('data', data => console.log(data.toString('utf8')));
+	maven.childProcess.stdout.on('data', data => process.stdout.write(data.toString('utf8')));
+	maven.childProcess.stderr.on('data', data => process.stdout.write(data.toString('utf8')));
 
 	return maven.then(() => aggregate(), aggregate);
 }
