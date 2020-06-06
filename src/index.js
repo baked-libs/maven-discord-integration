@@ -9,7 +9,7 @@ async function run() {
 	var repository = payload.repository.full_name
 	var commits = payload.commits
 	var size = commits.length
-	convarst branch = payload.ref.split('/')[payload.ref.split('/').length - 1]
+	var branch = payload.ref.split('/')[payload.ref.split('/').length - 1]
 
 	console.log(`Received payload ${JSON.stringify(payload, null, 2)}`)
 
