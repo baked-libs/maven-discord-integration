@@ -1,5 +1,5 @@
-name: 'classic-discord-webhooks'
-description: 'This GitHub Action sends  fancy and more meaningful discord messages for your commits.'
+name: 'Classic Discord Webhooks'
+description: 'This GitHub Action sends simple discord messages for your commits.'
 
 inputs:
   id:
@@ -14,5 +14,4 @@ runs:
   main: 'src/index.js'
   
 branding:
-  icon: check-circle
   color: black
