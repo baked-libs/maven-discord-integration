@@ -18,7 +18,7 @@ async function run() {
     	const id = core.getInput("id")
     	const token = core.getInput("token")
 
-	if(payload.head_commit).then((report) => {
+	isSkipped(payload.head_commit).then((report) => {
         webhook.send(id, token, repository, branch, payload.compare, commits, size, report).catch(err => core.setFailed(err.message))
     }, err => core.setFailed(err))
 }
