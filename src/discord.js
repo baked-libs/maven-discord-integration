@@ -35,7 +35,7 @@ function createEmbed(repo, branch, url, commits, size, report) {
     var embed = new discord.RichEmbed()
                 .setColor(getEmbedColor(report))
                 //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
-                .setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + banch)
+                .setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + branch)
                 .setDescription(getChangeLog(commits, size))
                 .setTimestamp(Date.parse(latest.timestamp))
 
