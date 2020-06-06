@@ -29,7 +29,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v1
     - name: Run Discord Webhook
-      uses: Mist3r_Robot/discord-webhook@master
+      uses: Mist3r-Robot/discord-webhook@master
       with:
         id: ${{ secrets.DISCORD_WEBHOOK_ID }}
         token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
