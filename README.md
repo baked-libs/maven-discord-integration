@@ -14,7 +14,7 @@ The standard webhook from GitHub to Discord just dumps the commit messages right
 
 | Standard Webhook | New and improved Webhook |
 |:-----------:|:----------------------------------------------------------:|
-| ![Old webhook interface](assets/old-webhook.png) | ![New webhook interface](assets/tests-passed.png) |
+| ![Old webhook interface](assets/old_webhook_interface.png) | ![New webhook interface](assets/new_webhook_interface.png) |
 
 
 
