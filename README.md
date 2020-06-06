@@ -12,20 +12,16 @@ This GitHub Action can produce fancy and more meaningful discord messages for yo
 ## Screenshots
 The standard webhook from GitHub to Discord just dumps the commit messages right into your chat, this is fine but sometimes you just want some extra information. Did the commit introduce any new issues? Did it even compile successfully? That's what this Action is for.
 
-### Standard Webhook
-![old webhook](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/old-webhook.png)
-
-### New and improved Webhook
-![tests passed](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/tests-passed.png)
+| Standard Webhook | New and improved Webhook |
+|:-----------:|:----------------------------------------------------------:|
+| ![Old webhook interface](assets/old-webhook.png) | ![New webhook interface](assets/tests-passed.png) |
 
 
 
 #### Example setup
 ```yml
 name: Discord Webhook
-
 on: [push]
-  
 jobs:
   report:
     runs-on: ubuntu-latest
@@ -33,7 +29,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v1
     - name: Run Discord Webhook
-      uses: thomasbnt/discord-webhook@master
+      uses: Mist3r_Robot/discord-webhook@master
       with:
         id: ${{ secrets.DISCORD_WEBHOOK_ID }}
         token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
