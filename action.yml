@@ -1,4 +1,4 @@
-name: 'clasic-discord-webhooks'
+name: 'classic-discord-webhooks'
 description: 'This GitHub Action sends  fancy and more meaningful discord messages for your commits.'
 
 inputs:
