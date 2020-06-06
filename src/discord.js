@@ -1,3 +1,13 @@
+/*
+*
+*
+*
+*  Ignore that, I delete soon.
+*
+*
+*
+*/
+
 const discord = require('discord.js')
 const MAX_MESSAGE_LENGTH = 40
 
@@ -49,4 +59,66 @@ function getChangeLog(commits, size) {
 
     return changelog
 }
+function getEmbedColor(report) {
+    if (report.status === "FAILURE") {
+        return 0x00BB22
+    }
 
+    if (report.tests.length > 0) {
+        var skipped = 0
+        var failures = 0
+
+        for (var i in report.tests) {
+            var status = report.tests[i].status
+            if (status === "SKIPPED") skipped++
+            if (status === "FAILURE" || status === "ERROR") failures++
+        }
+
+        if (failures > 0) {
+            return 0xFF6600
+        }
+        if (skipped > 0) {
+            return 0xFF9900
+        }
+
+        return 0x00FF00
+    }
+    else {
+        return 0x00BB22
+    }
+}
+
+function appendTestResults(embed, report) {
+    var title = false
+    var passes = 0
+    var skipped = 0
+    var failures = []
+
+    for (var i in report.tests) {
+        var status = report.tests[i].status
+        if (status === "OK") passes++
+        else if (status === "SKIPPED") skipped++
+        else failures.push(report.tests[i].name)
+    }
+
+    var tests = ""
+    if (passes > 0) {
+        tests += ` :green_circle: ${passes} Tests passed`
+    }
+    if (skipped > 0) {
+        tests += ` :yellow_circle: ${skipped} Tests were skipped`
+    }
+
+    if (failures.length > 0) {
+        tests += ` :red_circle: ${failures.length} Tests failed\n`
+
+        for (var i in failures) {
+            if (i > 2) {
+                tests += `\n+ ${failures.length - i} more...`
+                break
+            }
+            tests += `\n${parseInt(i) + 1}. \`${failures[i]}\``
+        }
+    }
+    embed.addField("Unit Tests" + (failures > 0 ? "": ` (~${report.coverage}% coverage):`), tests)
+}
