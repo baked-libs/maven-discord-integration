@@ -1,4 +1,4 @@
-const process = require('child-process-promise');
+const child_process = require('child-process-promise');
 const fs = require('fs').promises;
 const xml = require('xml-library');
 
@@ -11,10 +11,10 @@ function test(skip) {
 		args.push("-DskipTests");
 	}
 
-	var maven = process.spawn("mvn", args, { shell: true });
+	var maven = child_process.spawn("mvn", args, { shell: true });
 
-	maven.childProcess.stdout.on('data', data => console.log(data.toString('utf8')));
-	maven.childProcess.stderr.on('data', data => console.log(data.toString('utf8')));
+	maven.childProcess.stdout.on('data', data => process.stdout.write(data.toString('utf8')));
+	maven.childProcess.stderr.on('data', data => process.stdout.write(data.toString('utf8')));
 
 	return maven.then(() => aggregate(), aggregate);
 }
