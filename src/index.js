@@ -18,9 +18,9 @@ async function run() {
     	var id = core.getInput("id")
     	var token = core.getInput("token")
 
-	//analysis.start(isSkipped(payload.head_commit)).then((report) => {
+	analysis.start(isSkipped(payload.head_commit)).then((report) => {
         webhook.send(id, token, repository, branch, payload.compare, commits, size, report).catch(err => core.setFailed(err.message))
-    //}, err => core.setFailed(err))
+    }, err => core.setFailed(err))
 }
 
 try {
