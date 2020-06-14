@@ -1,13 +1,3 @@
-/*
-*
-*
-*
-*  Ignore that, I delete soon.
-*
-*
-*
-*/
-
 const discord = require('discord.js')
 const MAX_MESSAGE_LENGTH = 40
 
@@ -35,7 +25,7 @@ function createEmbed(repo, branch, url, commits, size, report) {
     var embed = new discord.RichEmbed()
                 .setColor(getEmbedColor(report))
                 //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
-                .setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + branch)
+                .setTitle(size + (size == 1 ? " commit was " : " commits were ") + "added to " + branch)
                 .setDescription(getChangeLog(commits, size))
                 .setTimestamp(Date.parse(latest.timestamp))
 
@@ -59,6 +49,15 @@ function getChangeLog(commits, size) {
 
     return changelog
 }
+/*
+*
+*
+*
+*  Ignore that, I delete soon.
+*
+*
+*
+*/
 function getEmbedColor(report) {
     if (report.status === "FAILURE") {
         return 0x00BB22
