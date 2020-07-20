@@ -50,4 +50,34 @@ The color of the embed changes depending on the compiler and test results. Here'
 | green | The build was successful, no tests failed and none were skipped. |
 
 ## Example setup
-TODO
+To set up this Action, create a new workflow file under `.github/workflows/workflow_name.yml`.
+
+**Important:** Your project must have a `pom.xml` file, this Action only supports Maven at the moment.<br>
+To report Unit Tests and coverage, you will need `maven-surefire` / `maven-failsafe` and/or `jacoco`.
+
+This workflow is rather simple, it checks out your repository, sets up Java and the webhook will then run `mvn test` and report the results to your discord webhook.
+You should configure the webhook id in advance.
+
+```yaml
+name: Discord Webhook
+
+on: [push]
+
+jobs:
+  report-status:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v1
+    - name: Set up JDK 1.8
+      uses: actions/setup-java@master
+      with:
+        java-version: 1.8
+    - name: Run Discord Webhook
+      uses: Slimefun/discord-webhook@master
+      with:
+        id: ${{ secrets.YOUR_DISCORD_WEBHOOK_ID }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+```
