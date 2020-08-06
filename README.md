@@ -79,5 +79,5 @@ jobs:
       uses: Slimefun/discord-webhook@master
       with:
         id: ${{ secrets.YOUR_DISCORD_WEBHOOK_ID }}
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.YOUR_DISCORD_WEBHOOK_TOKEN }}
 ```
