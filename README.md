@@ -36,4 +36,4 @@ jobs:
 ```
 
 
-Forked from [Slimefun/discord-webhook](https://github.com/Slimefun/discord-webhook).
+:octocat: Forked from [Slimefun/discord-webhook](https://github.com/Slimefun/discord-webhook).
