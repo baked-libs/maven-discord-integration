@@ -1,3 +1,5 @@
+![](https://img.shields.io/badge/-Github_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
+
 # Discord Webhook
 This GitHub Action can produce fancy and more meaningful discord messages for your commits.
 
