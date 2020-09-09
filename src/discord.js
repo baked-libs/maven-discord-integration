@@ -119,6 +119,6 @@ function appendTestResults(embed, report) {
         }
     }
 
-    embed.addField("Unit Tests" + (failures > 0 ? "": ` (~${report.coverage}% coverage):`), tests);
+    embed.addField("Unit Tests" + (failures.length > 0 ? "": ` (~${report.coverage}% coverage):`), tests);
     embed.setFooter(`Finished in ${report.time}s`);
 }
