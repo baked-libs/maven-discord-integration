@@ -18,7 +18,7 @@ The standard webhook from GitHub to Discord just dumps the commit messages right
 
 
 
-#### Example setup
+#### ⚙ Setup
 ```yml
 name: Discord Webhook
 on: [push]
@@ -35,5 +35,6 @@ jobs:
         token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
 ```
 
+#### ❓ Need more help ? [See this post on DEV](https://dev.to/mrrobot/follow-your-repository-from-discord-52ge) 
 
 :octocat: Forked from [Slimefun/discord-webhook](https://github.com/Slimefun/discord-webhook).
