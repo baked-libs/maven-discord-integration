@@ -37,4 +37,4 @@ jobs:
 
 #### ❓ Need more help ? [See this post on DEV](https://dev.to/mrrobot/follow-your-repository-from-discord-52ge) 
 
-:octocat: Forked from [Slimefun/discord-webhook](https://github.com/Slimefun/discord-webhook).
+[![Badge forked from](https://img.shields.io/badge/Forked-from%20Slimefun%2Fdiscordwebhook-black?logo=GitHub&style=for-the-badge)](https://github.com/Slimefun/discord-webhook)
