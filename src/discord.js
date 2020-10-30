@@ -28,7 +28,7 @@ function createEmbed(repo, branch, url, commits, size, report) {
                 .setTitle(size + (size == 1 ? " commit was " : " commits were ") + "added to " + branch)
                 .setDescription(getChangeLog(commits, size))
                 .setTimestamp(Date.parse(latest.timestamp))
-                .setFooter(`⚡ Edited by @${commits.author.username}`)
+                .setFooter(`⚡ Edited by @${commits[0].author.username}`)
 
     if (report.tests.length > 0) { appendTestResults(embed, report) }
     return embed
@@ -37,7 +37,7 @@ function createEmbed(repo, branch, url, commits, size, report) {
 function getChangeLog(commits, size) {
     var changelog = ""
     for (var i in commits) {
-        if (i > 3) {
+        if (i > 4) {
             changelog += `+ ${size - i} more...\n`
             break
         }
