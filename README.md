@@ -19,6 +19,7 @@ The standard webhook from GitHub to Discord just dumps the commit messages right
 
 
 #### ⚙ Setup
+Setup this code on your  `.github/workflows/` and name it want you want like `discord-push.yml` and push that. 
 ```yml
 name: Discord Webhook
 on: [push]
