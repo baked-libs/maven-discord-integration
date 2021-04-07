@@ -45,7 +45,7 @@ function getChangeLog(commits, size) {
         var commit = commits[i];
         var sha = commit.id.substring(0, 6)
         var message = commit.message.length > MAX_MESSAGE_LENGTH ? (commit.message.substring(0, MAX_MESSAGE_LENGTH) + "..."): commit.message
-        changelog += `[\`${sha}\`](${commit.url}) — ${message} \n`
+        changelog += `[\`${sha}\`](${commit.url}) — ${message}\n`
     }
 
     return changelog
