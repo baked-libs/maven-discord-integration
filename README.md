@@ -21,12 +21,12 @@ For Test Results and Coverage Reports you will need to use one of the following 
 The standard webhook from GitHub to Discord just dumps the commit messages right into your chat, this is fine but sometimes you just want some extra information. Did the commit introduce any new issues? Did it even compile successfully? That's what this Action is for.<br>
 
 ### Standard Webhook
-![old webhook](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/old-webhook.png)
+![old webhook](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/old-webhook.png)
 
 ### New and improved Webhook
-![tests passed](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/tests-passed.png)
-![tests skipped](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/tests-skipped.png)
-![tests failed](https://raw.githubusercontent.com/Slimefun/discord-webhook/master/assets/tests-failed.png)
+![tests passed](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/tests-passed.png)
+![tests skipped](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/tests-skipped.png)
+![tests failed](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/tests-failed.png)
 
 ### Changes
 * Removed the obnoxious author name and image at the top (may be a toggle in the future)
@@ -70,13 +70,16 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v1
-    - name: Set up JDK 1.8
-      uses: actions/setup-java@master
+      uses: actions/checkout@v2.3.4
+    - name: Set up Java JDK 11
+      uses: actions/setup-java@v2.1.0
       with:
-        java-version: 1.8
+        distribution: 'adopt'
+        java-version: '11'
+        java-package: jdk
+        architecture: x64
     - name: Run Discord Webhook
-      uses: Slimefun/discord-webhook@master
+      uses: baked-libs/discord-webhook@main
       with:
         id: ${{ secrets.YOUR_DISCORD_WEBHOOK_ID }}
         token: ${{ secrets.YOUR_DISCORD_WEBHOOK_TOKEN }}
