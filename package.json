@@ -1,6 +1,6 @@
 {
   "name": "fancier-discord-webhooks",
-  "version": "1.4.0",
+  "version": "1.5.1",
   "description": "This GitHub Action can produce fancy and more meaningful discord messages for your commits. It includes Test results and coverage.",
   "main": "src/index.js",
   "scripts": {
