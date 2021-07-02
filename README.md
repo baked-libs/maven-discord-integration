@@ -2,14 +2,14 @@
 This GitHub Action can produce fancy and more meaningful discord messages for your commits.
 <br>It includes Test results and coverage.
 
-## Requirements
+## :notebook: Requirements
 This currently works only for Maven projects.
 For Test Results and Coverage Reports you will need to use one of the following Maven plugins:
 * `maven-surefire`
 * `maven-failsafe`
 * `jacoco`
 
-## Inputs
+## :mailbox_with_no_mail: Inputs
 
 ### `id`
 **Required** This is the id of your Discord webhook, if you copy the webhook url, this will be the first part of it.
@@ -17,18 +17,18 @@ For Test Results and Coverage Reports you will need to use one of the following 
 ### `token`
 **Required** Now your Discord webhook token, it's the second part of the url.
 
-## Screenshots
+## :framed_picture: Screenshots
 The standard webhook from GitHub to Discord just dumps the commit messages right into your chat, this is fine but sometimes you just want some extra information. Did the commit introduce any new issues? Did it even compile successfully? That's what this Action is for.<br>
 
-### Standard Webhook
+### :spider_web: Standard Webhook
 ![old webhook](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/old-webhook.png)
 
-### New and improved Webhook
+### :star: New and improved Webhook
 ![tests passed](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/tests-passed.png)
 ![tests skipped](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/tests-skipped.png)
 ![tests failed](https://raw.githubusercontent.com/baked-libs/discord-webhook/master/assets/tests-failed.png)
 
-### Changes
+### :books: Changes
 * Removed the obnoxious author name and image at the top (may be a toggle in the future)
 * The branch is now clearly visible "Slimefun4:master" -> "Slimefun4 (master)"
 * The repository is now referred to by its full name, including the repository owner
@@ -39,7 +39,7 @@ The standard webhook from GitHub to Discord just dumps the commit messages right
 * An estimated test coverage is provided if you use the `jacoco` maven plugin.
 * Dynamic embed color changes
 
-#### Dynamic Coloring
+#### :art: Dynamic Coloring
 The color of the embed changes depending on the compiler and test results. Here's a breakdown:
 
 | Color | Description |
@@ -49,7 +49,7 @@ The color of the embed changes depending on the compiler and test results. Here'
 | yellow | The build was successful, no tests failed but some were skipped. |
 | green | The build was successful, no tests failed and none were skipped. |
 
-## Example setup
+## :scroll: Example setup
 To set up this Action, create a new workflow file under `.github/workflows/workflow_name.yml`.
 
 **Important:** Your project must have a `pom.xml` file, this Action only supports Maven at the moment.<br>
