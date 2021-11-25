@@ -17,7 +17,7 @@ Setup this code on your  `.github/workflows/` and name it want you want like `di
 name: Discord Webhook
 on: [push]
 jobs:
-  report:
+  Discord-notification:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository

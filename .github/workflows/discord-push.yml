@@ -1,7 +1,7 @@
 name: Discord Webhook
 on: [push]
 jobs:
-  report:
+  Discord-notification:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
