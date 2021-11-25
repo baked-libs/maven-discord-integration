@@ -17,15 +17,10 @@ async function run() {
     	const id = core.getInput("id")
     	const token = core.getInput("token")
 
-	analysis.start(isSkipped(payload.head_commit)).then(() => {
-        webhook.send(id, token, repository, branch, payload.compare, commits, size).catch(err => core.setFailed(err.message));
-    }, err => core.setFailed(err))
+    webhook.send(id, token, repository, branch, payload.compare, commits, size).catch(err => core.setFailed(err.message));
+    
 }
 
 try {
     run()
 } catch (error) { core.setFailed(error.message) }
-
-function isSkipped(commit) {
-	return commit.message.toLowerCase().includes("[skip]")
-}
