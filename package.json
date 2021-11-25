@@ -1,5 +1,5 @@
 {
-  "name": "classic-discord-webhooks",
+  "name": "classic-discord-webhook",
   "version": "1.0.0",
   "description": "This GitHub Action can produce fancy and more meaningful discord messages for your commits.",
   "main": "src/index.js",

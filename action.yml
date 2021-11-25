@@ -1,12 +1,12 @@
-name: 'Classic Discord Webhooks'
+name: 'Classic Discord Webhook'
 description: 'This GitHub Action sends simple discord messages for your commits.'
 
 inputs:
   id:
-    description: The Discord Webhook id
+    description: The Discord Webhook ID
     required: true
   token:
-    description: The Discord Webhook token
+    description: The Discord Webhook Token
     required: true
 
 runs:
@@ -15,4 +15,4 @@ runs:
   
 branding:
   icon: activity
-  color: black
+  color: gray-dark
