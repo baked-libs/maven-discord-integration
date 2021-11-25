@@ -42,6 +42,7 @@ function getChangeLog(commits, size) {
     var changelog = ""
     for (var i in commits) {
         if (i > 4) {
+        if (i > 7) {
             changelog += `+ ${size - i} more...\n`
             break
         }
