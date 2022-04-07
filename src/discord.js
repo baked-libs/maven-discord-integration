@@ -5,7 +5,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size) => new Promi
     var client
     console.log("Preparing Webhook...")
     try {
-        client = new discord.WebhookClient(id, token)
+        client = new discord.WebhookClient({id: id, token: token})
     }
     catch (error) {
         console.log("Error creating Webhook")
