@@ -21,21 +21,17 @@ module.exports.send = (id, token, repo, branch, url, commits, size) => new Promi
 
 function createEmbed(repo, branch, url, commits, size) {
     console.log("Constructing Embed...")
-    var latest = commits[0]
+    const latest = commits[0]
 
-    var embed = new discord.MessageEmbed()
-                .setColor(0x00BB22)
-                //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
-                .setTitle({
-                    title: `${size} ${size == 1 ? "commit was " : "commits were"}  added to ${branch}`
-                })
-                .setDescription(getChangeLog(commits, size))
-                .setTimestamp(Date.parse(latest.timestamp))
-                .setFooter({
-                    text: `⚡ Edited by @${commits[0].author.username}`
-                })
-
-    return embed
+    return new discord.MessageEmbed()
+        .setColor(0x00BB22)
+        //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
+        .setTitle(`${size} ${size === 1 ? "commit was " : "commits were"}  added to ${branch}`)
+        .setDescription(getChangeLog(commits, size))
+        .setTimestamp(Date.parse(latest.timestamp))
+        .setFooter({
+            text: `⚡ Edited by @${commits[0].author.username}`
+        })
 }
 
 function getChangeLog(commits, size) {
