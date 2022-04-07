@@ -1,4 +1,5 @@
 const discord = require('discord.js')
+const {MessageEmbed} = require("discord.js")
 const MAX_MESSAGE_LENGTH = 40
 
 module.exports.send = (id, token, repo, branch, url, commits, size) =>
@@ -22,7 +23,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size) =>
 function createEmbed(repo, branch, url, commits, size) {
   console.log('Constructing Embed...')
   var latest = commits[0]
-  var embed = new discord.MessageEmbed()
+  var embed = new MessageEmbed()
   .setTitle(`${repo}/${branch}`)
   /*var embed = new discord.MessageEmbed()
     .setColor(0x00bb22)
