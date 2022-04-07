@@ -19,6 +19,27 @@ module.exports.send = (id, token, repo, branch, url, commits, size) =>
     }, reject)
   })
 
+  function getChangeLog(commits, size) {
+    var changelog = ''
+    for (var i in commits) {
+      if (i > 7) {
+        changelog += `+ ${size - i} more...\n`
+        break
+      }
+  
+      var commit = commits[i]
+      var sha = commit.id.substring(0, 6)
+      var message =
+        commit.message.length > MAX_MESSAGE_LENGTH
+          ? commit.message.substring(0, MAX_MESSAGE_LENGTH) + '...'
+          : commit.message
+      changelog += `[\`${sha}\`](${commit.url}) — ${message}\n`
+    }
+  
+    return changelog
+  }
+  
+
 function createEmbed(repo, branch, url, commits, size) {
   console.log('Constructing Embed...')
   var latest = commits[0]
@@ -33,24 +54,4 @@ function createEmbed(repo, branch, url, commits, size) {
       text: `⚡ Edited by @${commits[0].author.username}`,
     })
   return embed
-}
-
-function getChangeLog(commits, size) {
-  var changelog = ''
-  for (var i in commits) {
-    if (i > 7) {
-      changelog += `+ ${size - i} more...\n`
-      break
-    }
-
-    var commit = commits[i]
-    var sha = commit.id.substring(0, 6)
-    var message =
-      commit.message.length > MAX_MESSAGE_LENGTH
-        ? commit.message.substring(0, MAX_MESSAGE_LENGTH) + '...'
-        : commit.message
-    changelog += `[\`${sha}\`](${commit.url}) — ${message}\n`
-  }
-
-  return changelog
 }
