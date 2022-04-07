@@ -27,7 +27,7 @@ function createEmbed(repo, branch, url, commits, size) {
                 .setColor(0x00BB22)
                 //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
                 .setTitle({
-                    title: `${size} ${size == 1 ? ' commit was ' : ' commits were '} added to ${branch}`
+                    title: size + (size == 1 ? " commit was " : " commits were ") + "added to " + branch
                 })
                 .setDescription(getChangeLog(commits, size))
                 .setTimestamp(Date.parse(latest.timestamp))
