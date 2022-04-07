@@ -36,16 +36,16 @@ function createEmbed(repo, branch, url, commits, size) {
 
 
 function getChangeLog(commits, size) {
-    var changelog = ''
-    for (var i in commits) {
+    let changelog = ''
+    for (const i in commits) {
         if (i > 7) {
             changelog += `+ ${size - i} more...\n`
             break
         }
 
-        var commit = commits[i]
-        var sha = commit.id.substring(0, 6)
-        var message =
+        const commit = commits[i]
+        const sha = commit.id.substring(0, 6)
+        const message =
             commit.message.length > MAX_MESSAGE_LENGTH
                 ? commit.message.substring(0, MAX_MESSAGE_LENGTH) + '...'
                 : commit.message
