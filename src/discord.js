@@ -8,6 +8,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size) => new Promi
         client = new discord.WebhookClient(id, token)
     }
     catch (error) {
+        console.log("Error creating Webhook")
         reject(error.message)
         return
     }
