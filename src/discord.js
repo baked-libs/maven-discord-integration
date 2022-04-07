@@ -1,11 +1,11 @@
-import { WebhookClient, MessageEmbed } from 'discord.js'
+const discord = require('discord.js')
 const MAX_MESSAGE_LENGTH = 40
 
-export function send(id, token, repo, branch, url, commits, size) { return new Promise((resolve, reject) => {
+module.exports.send = (id, token, repo, branch, url, commits, size) => new Promise((resolve, reject) => {
     var client
     console.log("Preparing Webhook...")
     try {
-        client = new WebhookClient(id, token)
+        client = new discord.WebhookClient(id, token)
     }
     catch (error) {
         reject(error.message)
@@ -16,13 +16,13 @@ export function send(id, token, repo, branch, url, commits, size) { return new P
         console.log("Successfully sent the message!")
         resolve()
     }, reject)
-})}
+})
 
 function createEmbed(repo, branch, url, commits, size) {
     console.log("Constructing Embed...")
     var latest = commits[0]
 
-    var embed = new MessageEmbed()
+    var embed = new discord.MessageEmbed()
                 .setColor(0x00BB22)
                 //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
                 .setTitle({
