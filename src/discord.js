@@ -53,5 +53,6 @@ function createEmbed(repo, branch, url, commits, size) {
     .setFooter({
       text: `⚡ Edited by @${commits[0].author.username}`,
     })
+    console.log(embed)
   return embed
 }
