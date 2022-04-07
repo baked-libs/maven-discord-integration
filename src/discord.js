@@ -22,15 +22,19 @@ module.exports.send = (id, token, repo, branch, url, commits, size) =>
 function createEmbed(repo, branch, url, commits, size) {
   console.log('Constructing Embed...')
   var latest = commits[0]
-  return new discord.MessageEmbed()
-      .setColor(0x00bb22)
-      //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
-      .setTitle(`${size} ${size === 1 ? 'commit was ' : 'commits were'} added to ${branch}`)
-      .setDescription(`${getChangeLog(commits, size)}`)
-      .setTimestamp(Date.parse(latest.timestamp))
-      .setFooter({
-          text: `⚡ Edited by @${commits[0].author.username}`,
-      })
+  var embed = new discord.MessageEmbed()
+  .setTitle(`${repo}/${branch}`)
+  /*var embed = new discord.MessageEmbed()
+    .setColor(0x00bb22)
+    //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
+    .setTitle(`${size} ${size === 1 ? 'commit was ' : 'commits were'} added to ${branch}`)
+    .setDescription(`${getChangeLog(commits, size)}`)
+    .setTimestamp(Date.parse(latest.timestamp))
+    .setFooter({
+      text: `⚡ Edited by @${commits[0].author.username}`,
+    })*/
+    console.log(embed)
+  return embed
 }
 
 
