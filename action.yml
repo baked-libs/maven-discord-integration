@@ -10,7 +10,7 @@ inputs:
     required: true
 
 runs:
-  using: 'node16'
+  using: 'node12'
   main: 'src/index.js'
   
 branding:
