@@ -1,49 +1,54 @@
-const Snowflake = require('../util/Snowflake');
-const Collection = require('../util/Collection');
+'use strict';
+
+const { Collection } = require('@discordjs/collection');
+const Base = require('./Base');
 const TeamMember = require('./TeamMember');
-const Constants = require('../util/Constants');
+const SnowflakeUtil = require('../util/SnowflakeUtil');
 
 /**
  * Represents a Client OAuth2 Application Team.
+ * @extends {Base}
  */
-class Team {
+class Team extends Base {
   constructor(client, data) {
-    /**
-     * The client that instantiated the team
-     * @name Team#client
-     * @type {Client}
-     * @readonly
-     */
-    Object.defineProperty(this, 'client', { value: client });
-
+    super(client);
     this._patch(data);
   }
 
   _patch(data) {
     /**
-     * The ID of the Team
+     * The Team's id
      * @type {Snowflake}
      */
     this.id = data.id;
 
-    /**
-     * The name of the Team
-     * @type {string}
-     */
-    this.name = data.name;
+    if ('name' in data) {
+      /**
+       * The name of the Team
+       * @type {string}
+       */
+      this.name = data.name;
+    }
 
-    /**
-     * The Team's icon hash
-     * @type {?string}
-     */
-    this.icon = data.icon || null;
+    if ('icon' in data) {
+      /**
+       * The Team's icon hash
+       * @type {?string}
+       */
+      this.icon = data.icon;
+    } else {
+      this.icon ??= null;
+    }
 
-    /**
-     * The Team's owner id
-     * @type {?string}
-     */
-    this.ownerID = data.owner_user_id || null;
-
+    if ('owner_user_id' in data) {
+      /**
+       * The Team's owner id
+       * @type {?Snowflake}
+       */
+      this.ownerId = data.owner_user_id;
+    } else {
+      this.ownerId ??= null;
+    }
     /**
      * The Team's members
      * @type {Collection<Snowflake, TeamMember>}
@@ -51,18 +56,18 @@ class Team {
     this.members = new Collection();
 
     for (const memberData of data.members) {
-      const member = new TeamMember(this.client, this, memberData);
+      const member = new TeamMember(this, memberData);
       this.members.set(member.id, member);
     }
   }
 
   /**
-   * The owner of the team
+   * The owner of this team
    * @type {?TeamMember}
    * @readonly
    */
   get owner() {
-    return this.members.get(this.ownerID) || null;
+    return this.members.get(this.ownerId) ?? null;
   }
 
   /**
@@ -71,7 +76,7 @@ class Team {
    * @readonly
    */
   get createdTimestamp() {
-    return Snowflake.deconstruct(this.id).timestamp;
+    return SnowflakeUtil.timestampFrom(this.id);
   }
 
   /**
@@ -84,13 +89,13 @@ class Team {
   }
 
   /**
-   * A link to the teams's icon.
-   * @type {?string}
-   * @readonly
+   * A link to the team's icon.
+   * @param {StaticImageURLOptions} [options={}] Options for the Image URL
+   * @returns {?string}
    */
-  get iconURL() {
+  iconURL({ format, size } = {}) {
     if (!this.icon) return null;
-    return Constants.Endpoints.CDN(this.client.options.http.cdn).TeamIcon(this.id, this.icon);
+    return this.client.rest.cdn.TeamIcon(this.id, this.icon, { format, size });
   }
 
   /**
@@ -103,6 +108,10 @@ class Team {
    */
   toString() {
     return this.name;
+  }
+
+  toJSON() {
+    return super.toJSON({ createdTimestamp: true });
   }
 }
 

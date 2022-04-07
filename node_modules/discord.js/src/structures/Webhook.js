@@ -1,153 +1,149 @@
-const EventEmitter = require('events');
-const path = require('path');
-const Util = require('../util/Util');
-const Attachment = require('./Attachment');
-const RichEmbed = require('./RichEmbed');
-const Constants = require('../util/Constants');
-const Snowflake = require('../util/Snowflake');
+'use strict';
+
+const process = require('node:process');
+const MessagePayload = require('./MessagePayload');
+const { Error } = require('../errors');
+const { WebhookTypes } = require('../util/Constants');
+const DataResolver = require('../util/DataResolver');
+const SnowflakeUtil = require('../util/SnowflakeUtil');
+
+let deprecationEmittedForFetchMessage = false;
 
 /**
  * Represents a webhook.
  */
-class Webhook extends EventEmitter {
-  constructor(client, dataOrID, token) {
-    super();
-    if (client) {
-      /**
-       * The client that instantiated the webhook
-       * @name Webhook#client
-       * @type {Client}
-       * @readonly
-       */
-      Object.defineProperty(this, 'client', { value: client });
-      if (dataOrID) this.setup(dataOrID);
-    } else {
-      this.id = dataOrID;
-      this.token = token;
-      Object.defineProperty(this, 'client', { value: this });
-    }
+class Webhook {
+  constructor(client, data) {
+    /**
+     * The client that instantiated the webhook
+     * @name Webhook#client
+     * @type {Client}
+     * @readonly
+     */
+    Object.defineProperty(this, 'client', { value: client });
+    if (data) this._patch(data);
   }
 
-  setup(data) {
-    /**
-     * The name of the webhook
-     * @type {string}
-     */
-    this.name = data.name;
+  _patch(data) {
+    if ('name' in data) {
+      /**
+       * The name of the webhook
+       * @type {string}
+       */
+      this.name = data.name;
+    }
 
     /**
-     * The token for the webhook
+     * The token for the webhook, unavailable for follower webhooks and webhooks owned by another application.
      * @name Webhook#token
      * @type {?string}
      */
-    Object.defineProperty(this, 'token', { value: data.token || null, writable: true, configurable: true });
+    Object.defineProperty(this, 'token', { value: data.token ?? null, writable: true, configurable: true });
+
+    if ('avatar' in data) {
+      /**
+       * The avatar for the webhook
+       * @type {?string}
+       */
+      this.avatar = data.avatar;
+    }
 
     /**
-     * The avatar for the webhook
-     * @type {?string}
-     */
-    this.avatar = data.avatar;
-
-    /**
-     * The ID of the webhook
+     * The webhook's id
      * @type {Snowflake}
      */
     this.id = data.id;
 
-    /**
-     * The type of the webhook
-     * @type {WebhookTypes}
-     */
-    this.type = Constants.WebhookTypes[data.type];
+    if ('type' in data) {
+      /**
+       * The type of the webhook
+       * @type {WebhookType}
+       */
+      this.type = WebhookTypes[data.type];
+    }
 
-    /**
-     * The guild the webhook belongs to
-     * @type {Snowflake}
-     */
-    this.guildID = data.guild_id;
+    if ('guild_id' in data) {
+      /**
+       * The guild the webhook belongs to
+       * @type {Snowflake}
+       */
+      this.guildId = data.guild_id;
+    }
 
-    /**
-     * The channel the webhook belongs to
-     * @type {Snowflake}
-     */
-    this.channelID = data.channel_id;
+    if ('channel_id' in data) {
+      /**
+       * The channel the webhook belongs to
+       * @type {Snowflake}
+       */
+      this.channelId = data.channel_id;
+    }
 
-    if (data.user) {
+    if ('user' in data) {
       /**
        * The owner of the webhook
-       * @type {?User|Object}
+       * @type {?(User|APIUser)}
        */
-      this.owner = this.client.users ? this.client.users.get(data.user.id) : data.user;
+      this.owner = this.client.users?._add(data.user) ?? data.user;
     } else {
-      this.owner = null;
+      this.owner ??= null;
+    }
+
+    if ('source_guild' in data) {
+      /**
+       * The source guild of the webhook
+       * @type {?(Guild|APIGuild)}
+       */
+      this.sourceGuild = this.client.guilds?.resolve(data.source_guild.id) ?? data.source_guild;
+    } else {
+      this.sourceGuild ??= null;
+    }
+
+    if ('source_channel' in data) {
+      /**
+       * The source channel of the webhook
+       * @type {?(NewsChannel|APIChannel)}
+       */
+      this.sourceChannel = this.client.channels?.resolve(data.source_channel?.id) ?? data.source_channel;
+    } else {
+      this.sourceChannel ??= null;
     }
   }
 
   /**
-   * The timestamp the webhook was created at
-   * @type {number}
-   * @readonly
-   */
-  get createdTimestamp() {
-    return Snowflake.deconstruct(this.id).timestamp;
-  }
-
-  /**
-   * The time the webhook was created at
-   * @type {Date}
-   * @readonly
-   */
-  get createdAt() {
-    return new Date(this.createdTimestamp);
-  }
-
-  /**
-   * A link to the webhook user's avatar
-   * @type {?stirng}
-   * @readonly
-   */
-  get avatarURL() {
-    if (!this.avatar) return null;
-    return Constants.Endpoints.CDN(this.client.options.http.cdn).Avatar(this.id, this.avatar);
-  }
-
-  /**
-   * The url of this webhook
-   * @type {string}
-   * @readonly
-   */
-  get url() {
-    const API = `${this.client.options.http.host}/api/v${this.client.options.http.version}`;
-    return API + Constants.Endpoints.Webhook(this.id, this.token);
-  }
-
-  /**
-   * Options that can be passed into send, sendMessage, sendFile, sendEmbed, and sendCode.
-   * @typedef {Object} WebhookMessageOptions
+   * Options that can be passed into send.
+   * @typedef {BaseMessageOptions} WebhookMessageOptions
    * @property {string} [username=this.name] Username override for the message
    * @property {string} [avatarURL] Avatar URL override for the message
-   * @property {boolean} [tts=false] Whether or not the message should be spoken aloud
-   * @property {string} [nonce=''] The nonce for the message
-   * @property {Array<RichEmbed|Object>} [embeds] An array of embeds for the message
-   * (see [here](https://discordapp.com/developers/docs/resources/channel#embed-object) for more details)
-   * @property {boolean} [disableEveryone=this.client.options.disableEveryone] Whether or not @everyone and @here
-   * should be replaced with plain-text
-   * @property {FileOptions|BufferResolvable|Attachment} [file] A file to send with the message **(deprecated)**
-   * @property {FileOptions[]|BufferResolvable[]|Attachment[]} [files] Files to send with the message
-   * @property {string|boolean} [code] Language for optional codeblock formatting to apply
-   * @property {boolean|SplitOptions} [split=false] Whether or not the message should be split into multiple messages if
-   * it exceeds the character limit. If an object is provided, these are the options for splitting the message.
+   * @property {Snowflake} [threadId] The id of the thread in the channel to send to.
+   * <info>For interaction webhooks, this property is ignored</info>
    */
 
   /**
-   * Send a message with this webhook.
-   * @param {StringResolvable} content The content to send
-   * @param {WebhookMessageOptions|Attachment|RichEmbed} [options] The options to provide,
-   * can also be just a RichEmbed or Attachment
-   * @returns {Promise<Message|Message[]|Object|Object[]>}
+   * Options that can be passed into editMessage.
+   * @typedef {Object} WebhookEditMessageOptions
+   * @property {MessageEmbed[]|APIEmbed[]} [embeds] See {@link WebhookMessageOptions#embeds}
+   * @property {string} [content] See {@link BaseMessageOptions#content}
+   * @property {FileOptions[]|BufferResolvable[]|MessageAttachment[]} [files] See {@link BaseMessageOptions#files}
+   * @property {MessageMentionOptions} [allowedMentions] See {@link BaseMessageOptions#allowedMentions}
+   * @property {MessageAttachment[]} [attachments] Attachments to send with the message
+   * @property {MessageActionRow[]|MessageActionRowOptions[]} [components]
+   * Action rows containing interactive components for the message (buttons, select menus)
+   * @property {Snowflake} [threadId] The id of the thread this message belongs to
+   * <info>For interaction webhooks, this property is ignored</info>
+   */
+
+  /**
+   * Sends a message with this webhook.
+   * @param {string|MessagePayload|WebhookMessageOptions} options The options to provide
+   * @returns {Promise<Message|APIMessage>}
    * @example
    * // Send a basic message
    * webhook.send('hello!')
+   *   .then(message => console.log(`Sent message: ${message.content}`))
+   *   .catch(console.error);
+   * @example
+   * // Send a basic message in a thread
+   * webhook.send({ content: 'hello!', threadId: '836856309672348295' })
    *   .then(message => console.log(`Sent message: ${message.content}`))
    *   .catch(console.error);
    * @example
@@ -169,7 +165,8 @@ class Webhook extends EventEmitter {
    *   .catch(console.error);
    * @example
    * // Send an embed with a local image inside
-   * webhook.send('This is an embed', {
+   * webhook.send({
+   *   content: 'This is an embed',
    *   embeds: [{
    *     thumbnail: {
    *          url: 'attachment://file.jpg'
@@ -183,128 +180,31 @@ class Webhook extends EventEmitter {
    *   .then(console.log)
    *   .catch(console.error);
    */
-  send(content, options) { // eslint-disable-line complexity
-    if (!options && typeof content === 'object' && !(content instanceof Array)) {
-      options = content;
-      content = '';
-    } else if (!options) {
-      options = {};
+  async send(options) {
+    if (!this.token) throw new Error('WEBHOOK_TOKEN_UNAVAILABLE');
+
+    let messagePayload;
+
+    if (options instanceof MessagePayload) {
+      messagePayload = options.resolveData();
+    } else {
+      messagePayload = MessagePayload.create(this, options).resolveData();
     }
 
-    if (options instanceof Attachment) options = { files: [options] };
-    if (options instanceof RichEmbed) options = { embeds: [options] };
-
-    if (content) {
-      content = this.client.resolver.resolveString(content);
-      let { split, code, disableEveryone } = options;
-      if (split && typeof split !== 'object') split = {};
-      if (typeof code !== 'undefined' && (typeof code !== 'boolean' || code === true)) {
-        content = Util.escapeMarkdown(content, true);
-        content = `\`\`\`${typeof code !== 'boolean' ? code || '' : ''}\n${content}\n\`\`\``;
-        if (split) {
-          split.prepend = `\`\`\`${typeof code !== 'boolean' ? code || '' : ''}\n`;
-          split.append = '\n```';
-        }
-      }
-      if (disableEveryone || (typeof disableEveryone === 'undefined' && this.client.options.disableEveryone)) {
-        content = content.replace(/@(everyone|here)/g, '@\u200b$1');
-      }
-
-      if (split) content = Util.splitMessage(content, split);
-    }
-
-    if (options.file) {
-      if (options.files) options.files.push(options.file);
-      else options.files = [options.file];
-    }
-
-    if (options.embeds) {
-      const files = [];
-      for (const embed of options.embeds) {
-        if (embed.file) files.push(embed.file);
-      }
-      if (options.files) options.files.push(...files);
-      else options.files = files;
-    }
-
-    if (options.embeds) options.embeds = options.embeds.map(e => new RichEmbed(e).toJSON());
-
-    if (options.files) {
-      for (let i = 0; i < options.files.length; i++) {
-        let file = options.files[i];
-        if (typeof file === 'string' || Buffer.isBuffer(file)) file = { attachment: file };
-        if (!file.name) {
-          if (typeof file.attachment === 'string') {
-            file.name = path.basename(file.attachment);
-          } else if (file.attachment && file.attachment.path) {
-            file.name = path.basename(file.attachment.path);
-          } else if (file instanceof Attachment) {
-            file = { attachment: file.file, name: path.basename(file.file) || 'file.jpg' };
-          } else {
-            file.name = 'file.jpg';
-          }
-        } else if (file instanceof Attachment) {
-          file = file.file;
-        }
-        options.files[i] = file;
-      }
-
-      return Promise.all(options.files.map(file =>
-        this.client.resolver.resolveFile(file.attachment).then(resource => {
-          file.file = resource;
-          return file;
-        })
-      )).then(files => this.client.rest.methods.sendWebhookMessage(this, content, options, files));
-    }
-
-    return this.client.rest.methods.sendWebhookMessage(this, content, options);
+    const { data, files } = await messagePayload.resolveFiles();
+    const d = await this.client.api.webhooks(this.id, this.token).post({
+      data,
+      files,
+      query: { thread_id: messagePayload.options.threadId, wait: true },
+      auth: false,
+    });
+    return this.client.channels?.cache.get(d.channel_id)?.messages._add(d, false) ?? d;
   }
 
   /**
-   * Send a message with this webhook
-   * @param {StringResolvable} content The content to send
-   * @param {WebhookMessageOptions} [options={}] The options to provide
-   * @returns {Promise<Message|Message[]>}
-   * @deprecated
-   * @example
-   * // Send a message
-   * webhook.sendMessage('hello!')
-   *  .then(message => console.log(`Sent message: ${message.content}`))
-   *  .catch(console.error);
-   */
-  sendMessage(content, options = {}) {
-    return this.send(content, options);
-  }
-
-  /**
-   * Send a file with this webhook.
-   * @param {BufferResolvable} attachment The file to send
-   * @param {string} [name='file.jpg'] The name and extension of the file
-   * @param {StringResolvable} [content] Text message to send with the attachment
-   * @param {WebhookMessageOptions} [options] The options to provide
-   * @returns {Promise<Message>}
-   * @deprecated
-   */
-  sendFile(attachment, name, content, options = {}) {
-    return this.send(content, Object.assign(options, { file: { attachment, name } }));
-  }
-
-  /**
-   * Send a code block with this webhook.
-   * @param {string} lang Language for the code block
-   * @param {StringResolvable} content Content of the code block
-   * @param {WebhookMessageOptions} options The options to provide
-   * @returns {Promise<Message|Message[]>}
-   * @deprecated
-   */
-  sendCode(lang, content, options = {}) {
-    return this.send(content, Object.assign(options, { code: lang }));
-  }
-
-  /**
-   * Send a raw slack message with this webhook.
+   * Sends a raw slack message with this webhook.
    * @param {Object} body The raw body to send
-   * @returns {Promise}
+   * @returns {Promise<boolean>}
    * @example
    * // Send a slack message
    * webhook.sendSlackMessage({
@@ -314,63 +214,235 @@ class Webhook extends EventEmitter {
    *     'color': '#F0F',
    *     'footer_icon': 'http://snek.s3.amazonaws.com/topSnek.png',
    *     'footer': 'Powered by sneks',
-   *     'ts': Date.now() / 1000
+   *     'ts': Date.now() / 1_000
    *   }]
    * }).catch(console.error);
+   * @see {@link https://api.slack.com/messaging/webhooks}
    */
-  sendSlackMessage(body) {
-    return this.client.rest.methods.sendSlackWebhookMessage(this, body);
+  async sendSlackMessage(body) {
+    if (!this.token) throw new Error('WEBHOOK_TOKEN_UNAVAILABLE');
+
+    const data = await this.client.api.webhooks(this.id, this.token).slack.post({
+      query: { wait: true },
+      auth: false,
+      data: body,
+    });
+    return data.toString() === 'ok';
   }
 
   /**
-   * Options provided to edit a webhook.
-   * @property {string} [name] The new name for the webhook
-   * @property {BufferResolvable} [avatar] The new avatar for the webhook
-   * @property {ChannelResolvable} [channel] The new channel for the webhook
-   * @typedef {Object} WebhookEditOptions
+   * Options used to edit a {@link Webhook}.
+   * @typedef {Object} WebhookEditData
+   * @property {string} [name=this.name] The new name for the webhook
+   * @property {?(BufferResolvable)} [avatar] The new avatar for the webhook
+   * @property {GuildTextChannelResolvable} [channel] The new channel for the webhook
    */
 
   /**
-   * Edit the webhook.
-   * @param {string|WebhookEditOptions} nameOrOptions The new name for the webhook **(deprecated, use options)**
-   * Alternatively options for the webhook, overriding the avatar parameter.
-   * @param {BufferResolvable|string} [avatarOrReason] The new avatar for the webhook **(deprecated, use options)**
-   * Alternatively a reason to edit, if using options as first parameter.
+   * Edits this webhook.
+   * @param {WebhookEditData} options Options for editing the webhook
+   * @param {string} [reason] Reason for editing the webhook
    * @returns {Promise<Webhook>}
    */
-  edit(nameOrOptions = this.name, avatarOrReason) {
-    if (typeof nameOrOptions !== 'object') {
-      process.emitWarning('Webhook#edit: Use options object instead of separate parameters.');
-      nameOrOptions = {
-        name: nameOrOptions,
-        avatar: avatarOrReason,
-      };
-      // Parameter was an avatar here; Clear the now reason parameter
-      avatarOrReason = undefined;
+  async edit({ name = this.name, avatar, channel }, reason) {
+    if (avatar && !(typeof avatar === 'string' && avatar.startsWith('data:'))) {
+      avatar = await DataResolver.resolveImage(avatar);
     }
+    channel &&= channel.id ?? channel;
+    const data = await this.client.api.webhooks(this.id, channel ? undefined : this.token).patch({
+      data: { name, avatar, channel_id: channel },
+      reason,
+      auth: !this.token || Boolean(channel),
+    });
 
-    if (nameOrOptions.channel) {
-      nameOrOptions.channel_id = this.client.resolver.resolveChannelID(nameOrOptions.channel);
-      nameOrOptions.channel = undefined;
-    }
-
-    if (nameOrOptions.avatar) {
-      return this.client.resolver.resolveImage(nameOrOptions.avatar).then(data => {
-        nameOrOptions.avatar = data;
-        return this.client.rest.methods.editWebhook(this, nameOrOptions, avatarOrReason);
-      });
-    }
-
-    return this.client.rest.methods.editWebhook(this, nameOrOptions, avatarOrReason);
+    this.name = data.name;
+    this.avatar = data.avatar;
+    this.channelId = data.channel_id;
+    return this;
   }
 
   /**
-   * Delete the webhook.
-   * @param {string} [reason] Reason for deleting the webhook
-   * @returns {Promise}
+   * Options that can be passed into fetchMessage.
+   * @typedef {options} WebhookFetchMessageOptions
+   * @property {boolean} [cache=true] Whether to cache the message.
+   * @property {Snowflake} [threadId] The id of the thread this message belongs to.
+   * <info>For interaction webhooks, this property is ignored</info>
    */
-  delete(reason) {
-    return this.client.rest.methods.deleteWebhook(this, reason);
+
+  /**
+   * Gets a message that was sent by this webhook.
+   * @param {Snowflake|'@original'} message The id of the message to fetch
+   * @param {WebhookFetchMessageOptions|boolean} [cacheOrOptions={}] The options to provide to fetch the message.
+   * <warn>A **deprecated** boolean may be passed instead to specify whether to cache the message.</warn>
+   * @returns {Promise<Message|APIMessage>} Returns the raw message data if the webhook was instantiated as a
+   * {@link WebhookClient} or if the channel is uncached, otherwise a {@link Message} will be returned
+   */
+  async fetchMessage(message, cacheOrOptions = { cache: true }) {
+    if (typeof cacheOrOptions === 'boolean') {
+      if (!deprecationEmittedForFetchMessage) {
+        process.emitWarning(
+          'Passing a boolean to cache the message in Webhook#fetchMessage is deprecated. Pass an object instead.',
+          'DeprecationWarning',
+        );
+
+        deprecationEmittedForFetchMessage = true;
+      }
+
+      cacheOrOptions = { cache: cacheOrOptions };
+    }
+
+    if (!this.token) throw new Error('WEBHOOK_TOKEN_UNAVAILABLE');
+
+    const data = await this.client.api
+      .webhooks(this.id, this.token)
+      .messages(message)
+      .get({
+        query: {
+          thread_id: cacheOrOptions.threadId,
+        },
+        auth: false,
+      });
+    return this.client.channels?.cache.get(data.channel_id)?.messages._add(data, cacheOrOptions.cache) ?? data;
+  }
+
+  /**
+   * Edits a message that was sent by this webhook.
+   * @param {MessageResolvable|'@original'} message The message to edit
+   * @param {string|MessagePayload|WebhookEditMessageOptions} options The options to provide
+   * @returns {Promise<Message|APIMessage>} Returns the raw message data if the webhook was instantiated as a
+   * {@link WebhookClient} or if the channel is uncached, otherwise a {@link Message} will be returned
+   */
+  async editMessage(message, options) {
+    if (!this.token) throw new Error('WEBHOOK_TOKEN_UNAVAILABLE');
+
+    let messagePayload;
+
+    if (options instanceof MessagePayload) messagePayload = options;
+    else messagePayload = MessagePayload.create(this, options);
+
+    const { data, files } = await messagePayload.resolveData().resolveFiles();
+
+    const d = await this.client.api
+      .webhooks(this.id, this.token)
+      .messages(typeof message === 'string' ? message : message.id)
+      .patch({
+        data,
+        files,
+        query: {
+          thread_id: messagePayload.options.threadId,
+        },
+        auth: false,
+      });
+
+    const messageManager = this.client.channels?.cache.get(d.channel_id)?.messages;
+    if (!messageManager) return d;
+
+    const existing = messageManager.cache.get(d.id);
+    if (!existing) return messageManager._add(d);
+
+    const clone = existing._clone();
+    clone._patch(d);
+    return clone;
+  }
+
+  /**
+   * Deletes the webhook.
+   * @param {string} [reason] Reason for deleting this webhook
+   * @returns {Promise<void>}
+   */
+  async delete(reason) {
+    await this.client.api.webhooks(this.id, this.token).delete({ reason, auth: !this.token });
+  }
+
+  /**
+   * Delete a message that was sent by this webhook.
+   * @param {MessageResolvable|'@original'} message The message to delete
+   * @param {Snowflake} [threadId] The id of the thread this message belongs to
+   * @returns {Promise<void>}
+   */
+  async deleteMessage(message, threadId) {
+    if (!this.token) throw new Error('WEBHOOK_TOKEN_UNAVAILABLE');
+
+    await this.client.api
+      .webhooks(this.id, this.token)
+      .messages(typeof message === 'string' ? message : message.id)
+      .delete({
+        query: {
+          thread_id: threadId,
+        },
+        auth: false,
+      });
+  }
+
+  /**
+   * The timestamp the webhook was created at
+   * @type {number}
+   * @readonly
+   */
+  get createdTimestamp() {
+    return SnowflakeUtil.timestampFrom(this.id);
+  }
+
+  /**
+   * The time the webhook was created at
+   * @type {Date}
+   * @readonly
+   */
+  get createdAt() {
+    return new Date(this.createdTimestamp);
+  }
+
+  /**
+   * The URL of this webhook
+   * @type {string}
+   * @readonly
+   */
+  get url() {
+    return this.client.options.http.api + this.client.api.webhooks(this.id, this.token);
+  }
+
+  /**
+   * A link to the webhook's avatar.
+   * @param {StaticImageURLOptions} [options={}] Options for the Image URL
+   * @returns {?string}
+   */
+  avatarURL({ format, size } = {}) {
+    if (!this.avatar) return null;
+    return this.client.rest.cdn.Avatar(this.id, this.avatar, format, size);
+  }
+
+  /**
+   * Whether or not this webhook is a channel follower webhook.
+   * @returns {boolean}
+   */
+  isChannelFollower() {
+    return this.type === 'Channel Follower';
+  }
+
+  /**
+   * Whether or not this webhook is an incoming webhook.
+   * @returns {boolean}
+   */
+  isIncoming() {
+    return this.type === 'Incoming';
+  }
+
+  static applyToClass(structure, ignore = []) {
+    for (const prop of [
+      'send',
+      'sendSlackMessage',
+      'fetchMessage',
+      'edit',
+      'editMessage',
+      'delete',
+      'deleteMessage',
+      'createdTimestamp',
+      'createdAt',
+      'url',
+    ]) {
+      if (ignore.includes(prop)) continue;
+      Object.defineProperty(structure.prototype, prop, Object.getOwnPropertyDescriptor(Webhook.prototype, prop));
+    }
   }
 }
 

@@ -1,82 +1,124 @@
+'use strict';
+
+const Base = require('./Base');
 const TextBasedChannel = require('./interfaces/TextBasedChannel');
-const Constants = require('../util/Constants');
-const Presence = require('./Presence').Presence;
-const Snowflake = require('../util/Snowflake');
-const util = require('util');
+const { Error } = require('../errors');
+const SnowflakeUtil = require('../util/SnowflakeUtil');
+const UserFlags = require('../util/UserFlags');
 
 /**
  * Represents a user on Discord.
  * @implements {TextBasedChannel}
+ * @extends {Base}
  */
-class User {
+class User extends Base {
   constructor(client, data) {
-    /**
-     * The client that created the instance of the user
-     * @name User#client
-     * @type {Client}
-     * @readonly
-     */
-    Object.defineProperty(this, 'client', { value: client });
+    super(client);
 
-    if (data) this.setup(data);
-  }
-
-  setup(data) {
     /**
-     * The ID of the user
+     * The user's id
      * @type {Snowflake}
      */
     this.id = data.id;
 
-    /**
-     * The username of the user
-     * @type {string}
-     */
-    this.username = data.username;
+    this.bot = null;
 
-    /**
-     * A discriminator based on username for the user
-     * @type {string}
-     */
-    this.discriminator = data.discriminator;
+    this.system = null;
 
-    /**
-     * The ID of the user's avatar
-     * @type {string}
-     */
-    this.avatar = data.avatar;
+    this.flags = null;
 
-    /**
-     * Whether or not the user is a bot
-     * @type {boolean}
-     */
-    this.bot = Boolean(data.bot);
-
-    /**
-     * Whether this is an Official Discord System user (part of the urgent message system)
-     * @type {?boolean}
-     * @name User#system
-     */
-    if (typeof data.system !== 'undefined') this.system = Boolean(data.system);
-
-    /**
-     * The ID of the last message sent by the user, if one was sent
-     * @type {?Snowflake}
-     */
-    this.lastMessageID = null;
-
-    /**
-     * The Message object of the last message sent by the user, if one was sent
-     * @type {?Message}
-     */
-    this.lastMessage = null;
+    this._patch(data);
   }
 
-  patch(data) {
-    for (const prop of ['id', 'username', 'discriminator', 'avatar', 'bot']) {
-      if (typeof data[prop] !== 'undefined') this[prop] = data[prop];
+  _patch(data) {
+    if ('username' in data) {
+      /**
+       * The username of the user
+       * @type {?string}
+       */
+      this.username = data.username;
+    } else {
+      this.username ??= null;
     }
-    if (data.token) this.client.token = data.token;
+
+    if ('bot' in data) {
+      /**
+       * Whether or not the user is a bot
+       * @type {?boolean}
+       */
+      this.bot = Boolean(data.bot);
+    } else if (!this.partial && typeof this.bot !== 'boolean') {
+      this.bot = false;
+    }
+
+    if ('discriminator' in data) {
+      /**
+       * A discriminator based on username for the user
+       * @type {?string}
+       */
+      this.discriminator = data.discriminator;
+    } else {
+      this.discriminator ??= null;
+    }
+
+    if ('avatar' in data) {
+      /**
+       * The user avatar's hash
+       * @type {?string}
+       */
+      this.avatar = data.avatar;
+    } else {
+      this.avatar ??= null;
+    }
+
+    if ('banner' in data) {
+      /**
+       * The user banner's hash
+       * <info>The user must be force fetched for this property to be present or be updated</info>
+       * @type {?string}
+       */
+      this.banner = data.banner;
+    } else if (this.banner !== null) {
+      this.banner ??= undefined;
+    }
+
+    if ('accent_color' in data) {
+      /**
+       * The base 10 accent color of the user's banner
+       * <info>The user must be force fetched for this property to be present or be updated</info>
+       * @type {?number}
+       */
+      this.accentColor = data.accent_color;
+    } else if (this.accentColor !== null) {
+      this.accentColor ??= undefined;
+    }
+
+    if ('system' in data) {
+      /**
+       * Whether the user is an Official Discord System user (part of the urgent message system)
+       * @type {?boolean}
+       */
+      this.system = Boolean(data.system);
+    } else if (!this.partial && typeof this.system !== 'boolean') {
+      this.system = false;
+    }
+
+    if ('public_flags' in data) {
+      /**
+       * The flags for this user
+       * @type {?UserFlags}
+       */
+      this.flags = new UserFlags(data.public_flags);
+    }
+  }
+
+  /**
+   * Whether this User is a partial
+   * @type {boolean}
+   * @readonly
+   */
+  get partial() {
+    return typeof this.username !== 'string';
   }
 
   /**
@@ -85,11 +127,11 @@ class User {
    * @readonly
    */
   get createdTimestamp() {
-    return Snowflake.deconstruct(this.id).timestamp;
+    return SnowflakeUtil.timestampFrom(this.id);
   }
 
   /**
-   * The time the user was created
+   * The time the user was created at
    * @type {Date}
    * @readonly
    */
@@ -98,26 +140,13 @@ class User {
   }
 
   /**
-   * The presence of this user
-   * @type {Presence}
-   * @readonly
+   * A link to the user's avatar.
+   * @param {ImageURLOptions} [options={}] Options for the Image URL
+   * @returns {?string}
    */
-  get presence() {
-    if (this.client.presences.has(this.id)) return this.client.presences.get(this.id);
-    for (const guild of this.client.guilds.values()) {
-      if (guild.presences.has(this.id)) return guild.presences.get(this.id);
-    }
-    return new Presence(undefined, this.client);
-  }
-
-  /**
-   * A link to the user's avatar
-   * @type {?string}
-   * @readonly
-   */
-  get avatarURL() {
+  avatarURL({ format, size, dynamic } = {}) {
     if (!this.avatar) return null;
-    return Constants.Endpoints.User(this).Avatar(this.client.options.http.cdn, this.avatar);
+    return this.client.rest.cdn.Avatar(this.id, this.avatar, format, size, dynamic);
   }
 
   /**
@@ -126,68 +155,50 @@ class User {
    * @readonly
    */
   get defaultAvatarURL() {
-    const avatars = Object.keys(Constants.DefaultAvatars);
-    const avatar = avatars[this.discriminator % avatars.length];
-    return Constants.Endpoints.CDN(this.client.options.http.host).Asset(`${Constants.DefaultAvatars[avatar]}.png`);
+    return this.client.rest.cdn.DefaultAvatar(this.discriminator % 5);
   }
 
   /**
-   * A link to the user's avatar if they have one. Otherwise a link to their default avatar will be returned
-   * @type {string}
+   * A link to the user's avatar if they have one.
+   * Otherwise a link to their default avatar will be returned.
+   * @param {ImageURLOptions} [options={}] Options for the Image URL
+   * @returns {string}
+   */
+  displayAvatarURL(options) {
+    return this.avatarURL(options) ?? this.defaultAvatarURL;
+  }
+
+  /**
+   * The hexadecimal version of the user accent color, with a leading hash
+   * <info>The user must be force fetched for this property to be present</info>
+   * @type {?string}
    * @readonly
    */
-  get displayAvatarURL() {
-    return this.avatarURL || this.defaultAvatarURL;
+  get hexAccentColor() {
+    if (typeof this.accentColor !== 'number') return this.accentColor;
+    return `#${this.accentColor.toString(16).padStart(6, '0')}`;
+  }
+
+  /**
+   * A link to the user's banner.
+   * <info>This method will throw an error if called before the user is force fetched.
+   * See {@link User#banner} for more info</info>
+   * @param {ImageURLOptions} [options={}] Options for the Image URL
+   * @returns {?string}
+   */
+  bannerURL({ format, size, dynamic } = {}) {
+    if (typeof this.banner === 'undefined') throw new Error('USER_BANNER_NOT_FETCHED');
+    if (!this.banner) return null;
+    return this.client.rest.cdn.Banner(this.id, this.banner, format, size, dynamic);
   }
 
   /**
    * The Discord "tag" (e.g. `hydrabolt#0001`) for this user
-   * @type {string}
+   * @type {?string}
    * @readonly
    */
   get tag() {
-    return `${this.username}#${this.discriminator}`;
-  }
-
-  /**
-   * The note that is set for the user
-   * <warn>This is only available when using a user account.</warn>
-   * @type {?string}
-   * @readonly
-   * @deprecated
-   */
-  get note() {
-    return this.client.user.notes.get(this.id) || null;
-  }
-
-  /**
-   * Check whether the user is typing in a channel.
-   * @param {ChannelResolvable} channel The channel to check in
-   * @returns {boolean}
-   */
-  typingIn(channel) {
-    channel = this.client.resolver.resolveChannel(channel);
-    return channel._typing.has(this.id);
-  }
-
-  /**
-   * Get the time that the user started typing.
-   * @param {ChannelResolvable} channel The channel to get the time in
-   * @returns {?Date}
-   */
-  typingSinceIn(channel) {
-    channel = this.client.resolver.resolveChannel(channel);
-    return channel._typing.has(this.id) ? new Date(channel._typing.get(this.id).since) : null;
-  }
-
-  /**
-   * Get the amount of time the user has been typing in a channel for (in milliseconds), or -1 if they're not typing.
-   * @param {ChannelResolvable} channel The channel to get the time in
-   * @returns {number}
-   */
-  typingDurationIn(channel) {
-    channel = this.client.resolver.resolveChannel(channel);
-    return channel._typing.has(this.id) ? channel._typing.get(this.id).elapsedTime : -1;
+    return typeof this.username === 'string' ? `${this.username}#${this.discriminator}` : null;
   }
 
   /**
@@ -196,15 +207,16 @@ class User {
    * @readonly
    */
   get dmChannel() {
-    return this.client.channels.find(c => c.type === 'dm' && c.recipient.id === this.id);
+    return this.client.users.dmChannel(this.id);
   }
 
   /**
    * Creates a DM channel between the client and the user.
+   * @param {boolean} [force=false] Whether to skip the cache check and request the API
    * @returns {Promise<DMChannel>}
    */
-  createDM() {
-    return this.client.rest.methods.createDM(this);
+  createDM(force = false) {
+    return this.client.users.createDM(this.id, force);
   }
 
   /**
@@ -212,125 +224,103 @@ class User {
    * @returns {Promise<DMChannel>}
    */
   deleteDM() {
-    return this.client.rest.methods.deleteChannel(this);
+    return this.client.users.deleteDM(this.id);
   }
 
   /**
-   * Sends a friend request to the user.
-   * <warn>This is only available when using a user account.</warn>
-   * @returns {Promise<User>}
-   * @deprecated
-   */
-  addFriend() {
-    return this.client.rest.methods.addFriend(this);
-  }
-
-  /**
-   * Removes the user from your friends.
-   * <warn>This is only available when using a user account.</warn>
-   * @returns {Promise<User>}
-   * @deprecated
-   */
-  removeFriend() {
-    return this.client.rest.methods.removeFriend(this);
-  }
-
-  /**
-   * Blocks the user.
-   * <warn>This is only available when using a user account.</warn>
-   * @returns {Promise<User>}
-   * @deprecated
-   */
-  block() {
-    return this.client.rest.methods.blockUser(this);
-  }
-
-  /**
-   * Unblocks the user.
-   * <warn>This is only available when using a user account.</warn>
-   * @returns {Promise<User>}
-   * @deprecated
-   */
-  unblock() {
-    return this.client.rest.methods.unblockUser(this);
-  }
-
-  /**
-   * Get the profile of the user.
-   * <warn>This is only available when using a user account.</warn>
-   * @returns {Promise<UserProfile>}
-   * @deprecated
-   */
-  fetchProfile() {
-    return this.client.rest.methods.fetchUserProfile(this);
-  }
-
-  /**
-   * Sets a note for the user.
-   * <warn>This is only available when using a user account.</warn>
-   * @param {string} note The note to set for the user
-   * @returns {Promise<User>}
-   * @deprecated
-   */
-  setNote(note) {
-    return this.client.rest.methods.setNote(this, note);
-  }
-
-  /**
-   * Checks if the user is equal to another. It compares ID, username, discriminator, avatar, and bot flags.
+   * Checks if the user is equal to another.
+   * It compares id, username, discriminator, avatar, banner, accent color, and bot flags.
    * It is recommended to compare equality by using `user.id === user2.id` unless you want to compare all properties.
    * @param {User} user User to compare with
    * @returns {boolean}
    */
   equals(user) {
-    let equal = user &&
+    return (
+      user &&
       this.id === user.id &&
       this.username === user.username &&
       this.discriminator === user.discriminator &&
       this.avatar === user.avatar &&
-      this.bot === Boolean(user.bot);
-
-    return equal;
+      this.flags?.bitfield === user.flags?.bitfield &&
+      this.banner === user.banner &&
+      this.accentColor === user.accentColor
+    );
   }
 
   /**
-   * When concatenated with a string, this automatically concatenates the user's mention instead of the User object.
+   * Compares the user with an API user object
+   * @param {APIUser} user The API user object to compare
+   * @returns {boolean}
+   * @private
+   */
+  _equals(user) {
+    return (
+      user &&
+      this.id === user.id &&
+      this.username === user.username &&
+      this.discriminator === user.discriminator &&
+      this.avatar === user.avatar &&
+      this.flags?.bitfield === user.public_flags &&
+      ('banner' in user ? this.banner === user.banner : true) &&
+      ('accent_color' in user ? this.accentColor === user.accent_color : true)
+    );
+  }
+
+  /**
+   * Fetches this user's flags.
+   * @param {boolean} [force=false] Whether to skip the cache check and request the API
+   * @returns {Promise<UserFlags>}
+   */
+  fetchFlags(force = false) {
+    return this.client.users.fetchFlags(this.id, { force });
+  }
+
+  /**
+   * Fetches this user.
+   * @param {boolean} [force=true] Whether to skip the cache check and request the API
+   * @returns {Promise<User>}
+   */
+  fetch(force = true) {
+    return this.client.users.fetch(this.id, { force });
+  }
+
+  /**
+   * When concatenated with a string, this automatically returns the user's mention instead of the User object.
    * @returns {string}
    * @example
-   * // logs: Hello from <@123456789>!
+   * // Logs: Hello from <@123456789012345678>!
    * console.log(`Hello from ${user}!`);
    */
   toString() {
     return `<@${this.id}>`;
   }
 
+  toJSON(...props) {
+    const json = super.toJSON(
+      {
+        createdTimestamp: true,
+        defaultAvatarURL: true,
+        hexAccentColor: true,
+        tag: true,
+      },
+      ...props,
+    );
+    json.avatarURL = this.avatarURL();
+    json.displayAvatarURL = this.displayAvatarURL();
+    json.bannerURL = this.banner ? this.bannerURL() : this.banner;
+    return json;
+  }
+
   // These are here only for documentation purposes - they are implemented by TextBasedChannel
   /* eslint-disable no-empty-function */
   send() {}
-  sendMessage() {}
-  sendEmbed() {}
-  sendFile() {}
-  sendCode() {}
 }
 
 TextBasedChannel.applyToClass(User);
 
-User.prototype.block =
-  util.deprecate(User.prototype.block, 'User#block: userbot methods will be removed');
-
-User.prototype.unblock =
-  util.deprecate(User.prototype.unblock, 'User#unblock: userbot methods will be removed');
-
-User.prototype.addFriend =
-  util.deprecate(User.prototype.addFriend, 'User#addFriend: userbot methods will be removed');
-
-User.prototype.removeFriend =
-  util.deprecate(User.prototype.removeFriend, 'User#removeFriend: userbot methods will be removed');
-
-User.prototype.setNote =
-  util.deprecate(User.prototype.setNote, 'User#setNote, userbot methods will be removed');
-
-User.prototype.fetchProfile =
-  util.deprecate(User.prototype.fetchProfile, 'User#fetchProfile: userbot methods will be removed');
-
 module.exports = User;
+
+/**
+ * @external APIUser
+ * @see {@link https://discord.com/developers/docs/resources/user#user-object}
+ */

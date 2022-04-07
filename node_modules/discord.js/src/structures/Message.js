@@ -1,229 +1,416 @@
-const Mentions = require('./MessageMentions');
-const Attachment = require('./MessageAttachment');
+'use strict';
+
+const process = require('node:process');
+const { Collection } = require('@discordjs/collection');
+const Base = require('./Base');
+const BaseMessageComponent = require('./BaseMessageComponent');
+const ClientApplication = require('./ClientApplication');
+const InteractionCollector = require('./InteractionCollector');
+const MessageAttachment = require('./MessageAttachment');
 const Embed = require('./MessageEmbed');
-const RichEmbed = require('./RichEmbed');
-const MessageReaction = require('./MessageReaction');
+const Mentions = require('./MessageMentions');
+const MessagePayload = require('./MessagePayload');
 const ReactionCollector = require('./ReactionCollector');
-const Util = require('../util/Util');
-const Collection = require('../util/Collection');
-const Constants = require('../util/Constants');
-const Permissions = require('../util/Permissions');
+const { Sticker } = require('./Sticker');
+const { Error } = require('../errors');
+const ReactionManager = require('../managers/ReactionManager');
+const { InteractionTypes, MessageTypes, SystemMessageTypes } = require('../util/Constants');
 const MessageFlags = require('../util/MessageFlags');
-let GuildMember;
+const Permissions = require('../util/Permissions');
+const SnowflakeUtil = require('../util/SnowflakeUtil');
+const Util = require('../util/Util');
+
+/**
+ * @type {WeakSet<Message>}
+ * @private
+ * @internal
+ */
+const deletedMessages = new WeakSet();
+let deprecationEmittedForDeleted = false;
 
 /**
  * Represents a message on Discord.
+ * @extends {Base}
  */
-class Message {
-  constructor(channel, data, client) {
-    /**
-     * The client that instantiated the Message
-     * @name Message#client
-     * @type {Client}
-     * @readonly
-     */
-    Object.defineProperty(this, 'client', { value: client });
+class Message extends Base {
+  constructor(client, data) {
+    super(client);
 
     /**
-     * The channel that the message was sent in
-     * @type {TextChannel|DMChannel|GroupDMChannel}
+     * The id of the channel the message was sent in
+     * @type {Snowflake}
      */
-    this.channel = channel;
+    this.channelId = data.channel_id;
 
     /**
-     * Whether this message has been deleted
-     * @type {boolean}
+     * The id of the guild the message was sent in, if any
+     * @type {?Snowflake}
      */
-    this.deleted = false;
+    this.guildId = data.guild_id ?? this.channel?.guild?.id ?? null;
 
-    if (data) this.setup(data);
+    this._patch(data);
   }
 
-  setup(data) { // eslint-disable-line complexity
+  _patch(data) {
     /**
-     * The ID of the message
+     * The message's id
      * @type {Snowflake}
      */
     this.id = data.id;
 
     /**
-     * The type of the message
-     * @type {MessageType}
-     */
-    this.type = Constants.MessageTypes[data.type];
-
-    /**
-     * The content of the message
-     * @type {string}
-     */
-    this.content = data.content;
-
-    /**
-     * The author of the message
-     * @type {User}
-     */
-    this.author = this.client.dataManager.newUser(data.author, !data.webhook_id);
-
-    /**
-     * Whether or not this message is pinned
-     * @type {boolean}
-     */
-    this.pinned = data.pinned;
-
-    /**
-     * Whether or not the message was Text-To-Speech
-     * @type {boolean}
-     */
-    this.tts = data.tts;
-
-    /**
-     * A random number or string used for checking message delivery
-     * <warn>This is only received after the message was sent successfully, and
-     * lost if re-fetched</warn>
-     * @type {?string}
-     */
-    this.nonce = data.nonce;
-
-    /**
-     * Whether or not this message was sent by Discord, not actually a user (e.g. pin notifications)
-     * @type {boolean}
-     */
-    this.system = data.type !== 0;
-
-    /**
-     * A list of embeds in the message - e.g. YouTube Player
-     * @type {MessageEmbed[]}
-     */
-    this.embeds = data.embeds.map(e => new Embed(this, e));
-
-    /**
-     * A collection of attachments in the message - e.g. Pictures - mapped by their ID
-     * @type {Collection<Snowflake, MessageAttachment>}
-     */
-    this.attachments = new Collection();
-    for (const attachment of data.attachments) this.attachments.set(attachment.id, new Attachment(this, attachment));
-
-    /**
      * The timestamp the message was sent at
      * @type {number}
      */
-    this.createdTimestamp = new Date(data.timestamp).getTime();
+    this.createdTimestamp = SnowflakeUtil.timestampFrom(this.id);
 
-    /**
-     * The timestamp the message was last edited at (if applicable)
-     * @type {?number}
-     */
-    this.editedTimestamp = data.edited_timestamp ? new Date(data.edited_timestamp).getTime() : null;
+    if ('type' in data) {
+      /**
+       * The type of the message
+       * @type {?MessageType}
+       */
+      this.type = MessageTypes[data.type];
 
-    /**
-     * A collection of reactions to this message, mapped by the reaction ID
-     * @type {Collection<Snowflake, MessageReaction>}
-     */
-    this.reactions = new Collection();
-    if (data.reactions && data.reactions.length > 0) {
-      for (const reaction of data.reactions) {
-        const id = reaction.emoji.id ? `${reaction.emoji.name}:${reaction.emoji.id}` : reaction.emoji.name;
-        this.reactions.set(id, new MessageReaction(this, reaction.emoji, reaction.count, reaction.me));
-      }
+      /**
+       * Whether or not this message was sent by Discord, not actually a user (e.g. pin notifications)
+       * @type {?boolean}
+       */
+      this.system = SystemMessageTypes.includes(this.type);
+    } else {
+      this.system ??= null;
+      this.type ??= null;
     }
 
-    /**
-     * All valid mentions that the message contains
-     * @type {MessageMentions}
-     */
-    this.mentions = new Mentions(this, data.mentions, data.mention_roles, data.mention_everyone, data.mention_channels);
-
-    /**
-     * ID of the webhook that sent the message, if applicable
-     * @type {?Snowflake}
-     */
-    this.webhookID = data.webhook_id || null;
-
-    /**
-     * Whether this message is a hit in a search
-     * @type {?boolean}
-     */
-    this.hit = typeof data.hit === 'boolean' ? data.hit : null;
-
-    /**
-     * Flags that are applied to the message
-     * @type {Readonly<MessageFlags>}
-     */
-    this.flags = new MessageFlags(data.flags).freeze();
-
-    /**
-     * Reference data sent in a crossposted message.
-     * @typedef {Object} MessageReference
-     * @property {string} channelID ID of the channel the message was crossposted from
-     * @property {?string} guildID ID of the guild the message was crossposted from
-     * @property {?string} messageID ID of the message that was crossposted
-     */
-
-    /**
-     * Message reference data
-     * @type {?MessageReference}
-     */
-    this.reference = data.message_reference ? {
-      channelID: data.message_reference.channel_id,
-      guildID: data.message_reference.guild_id,
-      messageID: data.message_reference.message_id,
-    } : null;
-
-    /**
-     * The previous versions of the message, sorted with the most recent first
-     * @type {Message[]}
-     * @private
-     */
-    this._edits = [];
-
-    if (data.member && this.guild && this.author && !this.guild.members.has(this.author.id)) {
-      this.guild._addMember(Object.assign(data.member, { user: this.author }), false);
+    if ('content' in data) {
+      /**
+       * The content of the message
+       * @type {?string}
+       */
+      this.content = data.content;
+    } else {
+      this.content ??= null;
     }
 
-    /**
-     * Represents the author of the message as a guild member
-     * Only available if the message comes from a guild where the author is still a member
-     * @type {?GuildMember}
-     */
-    this.member = this.guild ? this.guild.member(this.author) || null : null;
-  }
+    if ('author' in data) {
+      /**
+       * The author of the message
+       * @type {?User}
+       */
+      this.author = this.client.users._add(data.author, !data.webhook_id);
+    } else {
+      this.author ??= null;
+    }
 
-  /**
-   * Updates the message.
-   * @param {Object} data Raw Discord message update data
-   * @private
-   */
-  patch(data) {
-    const clone = Util.cloneObject(this);
-    this._edits.unshift(clone);
+    if ('pinned' in data) {
+      /**
+       * Whether or not this message is pinned
+       * @type {?boolean}
+       */
+      this.pinned = Boolean(data.pinned);
+    } else {
+      this.pinned ??= null;
+    }
 
-    if ('edited_timestamp' in data) this.editedTimestamp = new Date(data.edited_timestamp).getTime();
-    if ('content' in data) this.content = data.content;
-    if ('pinned' in data) this.pinned = data.pinned;
-    if ('tts' in data) this.tts = data.tts;
-    if ('embeds' in data) this.embeds = data.embeds.map(e => new Embed(this, e));
-    else this.embeds = this.embeds.slice();
+    if ('tts' in data) {
+      /**
+       * Whether or not the message was Text-To-Speech
+       * @type {?boolean}
+       */
+      this.tts = data.tts;
+    } else {
+      this.tts ??= null;
+    }
+
+    if ('nonce' in data) {
+      /**
+       * A random number or string used for checking message delivery
+       * <warn>This is only received after the message was sent successfully, and
+       * lost if re-fetched</warn>
+       * @type {?string}
+       */
+      this.nonce = data.nonce;
+    } else {
+      this.nonce ??= null;
+    }
+
+    if ('embeds' in data) {
+      /**
+       * A list of embeds in the message - e.g. YouTube Player
+       * @type {MessageEmbed[]}
+       */
+      this.embeds = data.embeds.map(e => new Embed(e, true));
+    } else {
+      this.embeds = this.embeds?.slice() ?? [];
+    }
+
+    if ('components' in data) {
+      /**
+       * A list of MessageActionRows in the message
+       * @type {MessageActionRow[]}
+       */
+      this.components = data.components.map(c => BaseMessageComponent.create(c, this.client));
+    } else {
+      this.components = this.components?.slice() ?? [];
+    }
 
     if ('attachments' in data) {
+      /**
+       * A collection of attachments in the message - e.g. Pictures - mapped by their ids
+       * @type {Collection<Snowflake, MessageAttachment>}
+       */
       this.attachments = new Collection();
-      for (const attachment of data.attachments) this.attachments.set(attachment.id, new Attachment(this, attachment));
+      if (data.attachments) {
+        for (const attachment of data.attachments) {
+          this.attachments.set(attachment.id, new MessageAttachment(attachment.url, attachment.filename, attachment));
+        }
+      }
     } else {
       this.attachments = new Collection(this.attachments);
     }
 
-    this.mentions = new Mentions(
-      this,
-      'mentions' in data ? data.mentions : this.mentions.users,
-      'mentions_roles' in data ? data.mentions_roles : this.mentions.roles,
-      'mention_everyone' in data ? data.mention_everyone : this.mentions.everyone,
-      'mention_channels' in data ? data.mention_channels : this.mentions.crosspostedChannels
-    );
+    if ('sticker_items' in data || 'stickers' in data) {
+      /**
+       * A collection of stickers in the message
+       * @type {Collection<Snowflake, Sticker>}
+       */
+      this.stickers = new Collection(
+        (data.sticker_items ?? data.stickers)?.map(s => [s.id, new Sticker(this.client, s)]),
+      );
+    } else {
+      this.stickers = new Collection(this.stickers);
+    }
 
-    this.flags = new MessageFlags('flags' in data ? data.flags : 0).freeze();
+    // Discord sends null if the message has not been edited
+    if (data.edited_timestamp) {
+      /**
+       * The timestamp the message was last edited at (if applicable)
+       * @type {?number}
+       */
+      this.editedTimestamp = new Date(data.edited_timestamp).getTime();
+    } else {
+      this.editedTimestamp ??= null;
+    }
+
+    if ('reactions' in data) {
+      /**
+       * A manager of the reactions belonging to this message
+       * @type {ReactionManager}
+       */
+      this.reactions = new ReactionManager(this);
+      if (data.reactions?.length > 0) {
+        for (const reaction of data.reactions) {
+          this.reactions._add(reaction);
+        }
+      }
+    } else {
+      this.reactions ??= new ReactionManager(this);
+    }
+
+    if (!this.mentions) {
+      /**
+       * All valid mentions that the message contains
+       * @type {MessageMentions}
+       */
+      this.mentions = new Mentions(
+        this,
+        data.mentions,
+        data.mention_roles,
+        data.mention_everyone,
+        data.mention_channels,
+        data.referenced_message?.author,
+      );
+    } else {
+      this.mentions = new Mentions(
+        this,
+        data.mentions ?? this.mentions.users,
+        data.mention_roles ?? this.mentions.roles,
+        data.mention_everyone ?? this.mentions.everyone,
+        data.mention_channels ?? this.mentions.crosspostedChannels,
+        data.referenced_message?.author ?? this.mentions.repliedUser,
+      );
+    }
+
+    if ('webhook_id' in data) {
+      /**
+       * The id of the webhook that sent the message, if applicable
+       * @type {?Snowflake}
+       */
+      this.webhookId = data.webhook_id;
+    } else {
+      this.webhookId ??= null;
+    }
+
+    if ('application' in data) {
+      /**
+       * Supplemental application information for group activities
+       * @type {?ClientApplication}
+       */
+      this.groupActivityApplication = new ClientApplication(this.client, data.application);
+    } else {
+      this.groupActivityApplication ??= null;
+    }
+
+    if ('application_id' in data) {
+      /**
+       * The id of the application of the interaction that sent this message, if any
+       * @type {?Snowflake}
+       */
+      this.applicationId = data.application_id;
+    } else {
+      this.applicationId ??= null;
+    }
+
+    if ('activity' in data) {
+      /**
+       * Group activity
+       * @type {?MessageActivity}
+       */
+      this.activity = {
+        partyId: data.activity.party_id,
+        type: data.activity.type,
+      };
+    } else {
+      this.activity ??= null;
+    }
+
+    if ('thread' in data) {
+      this.client.channels._add(data.thread, this.guild);
+    }
+
+    if (this.member && data.member) {
+      this.member._patch(data.member);
+    } else if (data.member && this.guild && this.author) {
+      this.guild.members._add(Object.assign(data.member, { user: this.author }));
+    }
+
+    if ('flags' in data) {
+      /**
+       * Flags that are applied to the message
+       * @type {Readonly<MessageFlags>}
+       */
+      this.flags = new MessageFlags(data.flags).freeze();
+    } else {
+      this.flags = new MessageFlags(this.flags).freeze();
+    }
+
+    /**
+     * Reference data sent in a message that contains ids identifying the referenced message.
+     * This can be present in the following types of message:
+     * * Crossposted messages (IS_CROSSPOST {@link MessageFlags.FLAGS message flag})
+     * * CHANNEL_FOLLOW_ADD
+     * * CHANNEL_PINNED_MESSAGE
+     * * REPLY
+     * * THREAD_STARTER_MESSAGE
+     * @see {@link https://discord.com/developers/docs/resources/channel#message-types}
+     * @typedef {Object} MessageReference
+     * @property {Snowflake} channelId The channel's id the message was referenced
+     * @property {?Snowflake} guildId The guild's id the message was referenced
+     * @property {?Snowflake} messageId The message's id that was referenced
+     */
+
+    if ('message_reference' in data) {
+      /**
+       * Message reference data
+       * @type {?MessageReference}
+       */
+      this.reference = {
+        channelId: data.message_reference.channel_id,
+        guildId: data.message_reference.guild_id,
+        messageId: data.message_reference.message_id,
+      };
+    } else {
+      this.reference ??= null;
+    }
+
+    if (data.referenced_message) {
+      this.channel?.messages._add({ guild_id: data.message_reference?.guild_id, ...data.referenced_message });
+    }
+
+    /**
+     * Partial data of the interaction that a message is a reply to
+     * @typedef {Object} MessageInteraction
+     * @property {Snowflake} id The interaction's id
+     * @property {InteractionType} type The type of the interaction
+     * @property {string} commandName The name of the interaction's application command
+     * @property {User} user The user that invoked the interaction
+     */
+
+    if (data.interaction) {
+      /**
+       * Partial data of the interaction that this message is a reply to
+       * @type {?MessageInteraction}
+       */
+      this.interaction = {
+        id: data.interaction.id,
+        type: InteractionTypes[data.interaction.type],
+        commandName: data.interaction.name,
+        user: this.client.users._add(data.interaction.user),
+      };
+    } else {
+      this.interaction ??= null;
+    }
   }
 
   /**
-   * The time the message was sent
+   * Whether or not the structure has been deleted
+   * @type {boolean}
+   * @deprecated This will be removed in the next major version, see https://github.com/discordjs/discord.js/issues/7091
+   */
+  get deleted() {
+    if (!deprecationEmittedForDeleted) {
+      deprecationEmittedForDeleted = true;
+      process.emitWarning(
+        'Message#deleted is deprecated, see https://github.com/discordjs/discord.js/issues/7091.',
+        'DeprecationWarning',
+      );
+    }
+
+    return deletedMessages.has(this);
+  }
+
+  set deleted(value) {
+    if (!deprecationEmittedForDeleted) {
+      deprecationEmittedForDeleted = true;
+      process.emitWarning(
+        'Message#deleted is deprecated, see https://github.com/discordjs/discord.js/issues/7091.',
+        'DeprecationWarning',
+      );
+    }
+
+    if (value) deletedMessages.add(this);
+    else deletedMessages.delete(this);
+  }
+
+  /**
+   * The channel that the message was sent in
+   * @type {TextChannel|DMChannel|NewsChannel|ThreadChannel}
+   * @readonly
+   */
+  get channel() {
+    return this.client.channels.resolve(this.channelId);
+  }
+
+  /**
+   * Whether or not this message is a partial
+   * @type {boolean}
+   * @readonly
+   */
+  get partial() {
+    return typeof this.content !== 'string' || !this.author;
+  }
+
+  /**
+   * Represents the author of the message as a guild member.
+   * Only available if the message comes from a guild where the author is still a member
+   * @type {?GuildMember}
+   * @readonly
+   */
+  get member() {
+    return this.guild?.members.resolve(this.author) ?? null;
+  }
+
+  /**
+   * The time the message was sent at
    * @type {Date}
    * @readonly
    */
@@ -246,70 +433,62 @@ class Message {
    * @readonly
    */
   get guild() {
-    return this.channel.guild || null;
+    return this.client.guilds.resolve(this.guildId) ?? this.channel?.guild ?? null;
   }
 
   /**
-   * The url to jump to the message
+   * Whether this message has a thread associated with it
+   * @type {boolean}
+   * @readonly
+   */
+  get hasThread() {
+    return this.flags.has(MessageFlags.FLAGS.HAS_THREAD);
+  }
+
+  /**
+   * The thread started by this message
+   * <info>This property is not suitable for checking whether a message has a thread,
+   * use {@link Message#hasThread} instead.</info>
+   * @type {?ThreadChannel}
+   * @readonly
+   */
+  get thread() {
+    return this.channel?.threads?.resolve(this.id) ?? null;
+  }
+
+  /**
+   * The URL to jump to this message
    * @type {string}
    * @readonly
    */
   get url() {
-    return `https://discordapp.com/channels/${this.guild ? this.guild.id : '@me'}/${this.channel.id}/${this.id}`;
+    return `https://discord.com/channels/${this.guildId ?? '@me'}/${this.channelId}/${this.id}`;
   }
 
   /**
    * The message contents with all mentions replaced by the equivalent text.
    * If mentions cannot be resolved to a name, the relevant mention in the message content will not be converted.
-   * @type {string}
+   * @type {?string}
    * @readonly
    */
   get cleanContent() {
-    return this.content
-      .replace(/@(everyone|here)/g, '@\u200b$1')
-      .replace(/<@!?[0-9]+>/g, input => {
-        const id = input.replace(/<|!|>|@/g, '');
-        if (this.channel.type === 'dm' || this.channel.type === 'group') {
-          return this.client.users.has(id) ? `@${this.client.users.get(id).username}` : input;
-        }
-
-        const member = this.channel.guild.members.get(id);
-        if (member) {
-          if (member.nickname) return `@${member.nickname}`;
-          return `@${member.user.username}`;
-        } else {
-          const user = this.client.users.get(id);
-          if (user) return `@${user.username}`;
-          return input;
-        }
-      })
-      .replace(/<#[0-9]+>/g, input => {
-        const channel = this.client.channels.get(input.replace(/<|#|>/g, ''));
-        if (channel) return `#${channel.name}`;
-        return input;
-      })
-      .replace(/<@&[0-9]+>/g, input => {
-        if (this.channel.type === 'dm' || this.channel.type === 'group') return input;
-        const role = this.guild.roles.get(input.replace(/<|@|>|&/g, ''));
-        if (role) return `@${role.name}`;
-        return input;
-      });
+    // eslint-disable-next-line eqeqeq
+    return this.content != null ? Util.cleanContent(this.content, this.channel) : null;
   }
 
   /**
    * Creates a reaction collector.
-   * @param {CollectorFilter} filter The filter to apply
    * @param {ReactionCollectorOptions} [options={}] Options to send to the collector
    * @returns {ReactionCollector}
    * @example
    * // Create a reaction collector
-   * const filter = (reaction, user) => reaction.emoji.name === '👌' && user.id === 'someID'
-   * const collector = message.createReactionCollector(filter, { time: 15000 });
+   * const filter = (reaction, user) => reaction.emoji.name === '👌' && user.id === 'someId';
+   * const collector = message.createReactionCollector({ filter, time: 15_000 });
    * collector.on('collect', r => console.log(`Collected ${r.emoji.name}`));
    * collector.on('end', collected => console.log(`Collected ${collected.size} items`));
    */
-  createReactionCollector(filter, options = {}) {
-    return new ReactionCollector(this, filter, options);
+  createReactionCollector(options = {}) {
+    return new ReactionCollector(this, options);
   }
 
   /**
@@ -319,38 +498,84 @@ class Message {
    */
 
   /**
-   * Similar to createMessageCollector but in promise form.
+   * Similar to createReactionCollector but in promise form.
    * Resolves with a collection of reactions that pass the specified filter.
-   * @param {CollectorFilter} filter The filter function to use
    * @param {AwaitReactionsOptions} [options={}] Optional options to pass to the internal collector
-   * @returns {Promise<Collection<string, MessageReaction>>}
+   * @returns {Promise<Collection<string | Snowflake, MessageReaction>>}
    * @example
    * // Create a reaction collector
-   * const filter = (reaction, user) => reaction.emoji.name === '👌' && user.id === 'someID'
-   * message.awaitReactions(filter, { time: 15000 })
+   * const filter = (reaction, user) => reaction.emoji.name === '👌' && user.id === 'someId'
+   * message.awaitReactions({ filter, time: 15_000 })
    *   .then(collected => console.log(`Collected ${collected.size} reactions`))
    *   .catch(console.error);
    */
-  awaitReactions(filter, options = {}) {
+  awaitReactions(options = {}) {
     return new Promise((resolve, reject) => {
-      const collector = this.createReactionCollector(filter, options);
+      const collector = this.createReactionCollector(options);
       collector.once('end', (reactions, reason) => {
-        if (options.errors && options.errors.includes(reason)) reject(reactions);
+        if (options.errors?.includes(reason)) reject(reactions);
         else resolve(reactions);
       });
     });
   }
 
   /**
-   * An array of cached versions of the message, including the current version
-   * Sorted from latest (first) to oldest (last)
-   * @type {Message[]}
-   * @readonly
+   * @typedef {CollectorOptions} MessageComponentCollectorOptions
+   * @property {MessageComponentType} [componentType] The type of component to listen for
+   * @property {number} [max] The maximum total amount of interactions to collect
+   * @property {number} [maxComponents] The maximum number of components to collect
+   * @property {number} [maxUsers] The maximum number of users to interact
    */
-  get edits() {
-    const copy = this._edits.slice();
-    copy.unshift(this);
-    return copy;
+
+  /**
+   * Creates a message component interaction collector.
+   * @param {MessageComponentCollectorOptions} [options={}] Options to send to the collector
+   * @returns {InteractionCollector}
+   * @example
+   * // Create a message component interaction collector
+   * const filter = (interaction) => interaction.customId === 'button' && interaction.user.id === 'someId';
+   * const collector = message.createMessageComponentCollector({ filter, time: 15_000 });
+   * collector.on('collect', i => console.log(`Collected ${i.customId}`));
+   * collector.on('end', collected => console.log(`Collected ${collected.size} items`));
+   */
+  createMessageComponentCollector(options = {}) {
+    return new InteractionCollector(this.client, {
+      ...options,
+      interactionType: InteractionTypes.MESSAGE_COMPONENT,
+      message: this,
+    });
+  }
+
+  /**
+   * An object containing the same properties as CollectorOptions, but a few more:
+   * @typedef {Object} AwaitMessageComponentOptions
+   * @property {CollectorFilter} [filter] The filter applied to this collector
+   * @property {number} [time] Time to wait for an interaction before rejecting
+   * @property {MessageComponentType} [componentType] The type of component interaction to collect
+   */
+
+  /**
+   * Collects a single component interaction that passes the filter.
+   * The Promise will reject if the time expires.
+   * @param {AwaitMessageComponentOptions} [options={}] Options to pass to the internal collector
+   * @returns {Promise<MessageComponentInteraction>}
+   * @example
+   * // Collect a message component interaction
+   * const filter = (interaction) => interaction.customId === 'button' && interaction.user.id === 'someId';
+   * message.awaitMessageComponent({ filter, time: 15_000 })
+   *   .then(interaction => console.log(`${interaction.customId} was clicked!`))
+   *   .catch(console.error);
+   */
+  awaitMessageComponent(options = {}) {
+    const _options = { ...options, max: 1 };
+    return new Promise((resolve, reject) => {
+      const collector = this.createMessageComponentCollector(_options);
+      collector.once('end', (interactions, reason) => {
+        const interaction = interactions.first();
+        if (interaction) resolve(interaction);
+        else reject(new Error('INTERACTION_COLLECTOR_ERROR', reason));
+      });
+    });
   }
 
   /**
@@ -359,7 +584,15 @@ class Message {
    * @readonly
    */
   get editable() {
-    return this.author.id === this.client.user.id;
+    const precheck = Boolean(
+      this.author.id === this.client.user.id && !deletedMessages.has(this) && (!this.guild || this.channel?.viewable),
+    );
+    // Regardless of permissions thread messages cannot be edited if
+    // the thread is locked.
+    if (this.channel?.isThread()) {
+      return precheck && !this.channel.locked;
+    }
+    return precheck;
   }
 
   /**
@@ -368,9 +601,27 @@ class Message {
    * @readonly
    */
   get deletable() {
-    return !this.deleted && (this.author.id === this.client.user.id || (this.guild &&
-      this.channel.permissionsFor(this.client.user).has(Permissions.FLAGS.MANAGE_MESSAGES)
-    ));
+    if (deletedMessages.has(this)) {
+      return false;
+    }
+    if (!this.guild) {
+      return this.author.id === this.client.user.id;
+    }
+    // DMChannel does not have viewable property, so check viewable after proved that message is on a guild.
+    if (!this.channel?.viewable) {
+      return false;
+    }
+
+    const permissions = this.channel?.permissionsFor(this.client.user);
+    if (!permissions) return false;
+    // This flag allows deleting even if timed out
+    if (permissions.has(Permissions.FLAGS.ADMINISTRATOR, false)) return true;
+
+    return Boolean(
+      this.author.id === this.client.user.id ||
+        (permissions.has(Permissions.FLAGS.MANAGE_MESSAGES, false) &&
+          this.guild.me.communicationDisabledUntilTimestamp < Date.now()),
+    );
   }
 
   /**
@@ -379,97 +630,127 @@ class Message {
    * @readonly
    */
   get pinnable() {
-    return this.type === 'DEFAULT' && (!this.guild ||
-      this.channel.permissionsFor(this.client.user).has(Permissions.FLAGS.MANAGE_MESSAGES));
+    const { channel } = this;
+    return Boolean(
+      !this.system &&
+        !deletedMessages.has(this) &&
+        (!this.guild ||
+          (channel?.viewable &&
+            channel?.permissionsFor(this.client.user)?.has(Permissions.FLAGS.MANAGE_MESSAGES, false))),
+    );
   }
 
   /**
-   * Whether or not a user, channel or role is mentioned in this message.
-   * @param {GuildChannel|User|Role|string} data Either a guild channel, user or a role object, or a string representing
-   * the ID of any of these
-   * @returns {boolean}
+   * Fetches the Message this crosspost/reply/pin-add references, if available to the client
+   * @returns {Promise<Message>}
    */
-  isMentioned(data) {
-    data = data && data.id ? data.id : data;
-    return this.mentions.users.has(data) || this.mentions.channels.has(data) || this.mentions.roles.has(data);
+  async fetchReference() {
+    if (!this.reference) throw new Error('MESSAGE_REFERENCE_MISSING');
+    const { channelId, messageId } = this.reference;
+    const channel = this.client.channels.resolve(channelId);
+    if (!channel) throw new Error('GUILD_CHANNEL_RESOLVE');
+    const message = await channel.messages.fetch(messageId);
+    return message;
   }
 
   /**
-   * Whether or not a guild member is mentioned in this message. Takes into account
-   * user mentions, role mentions, and @everyone/@here mentions.
-   * @param {GuildMember|User} member The member/user to check for a mention of
-   * @returns {boolean}
+   * Whether the message is crosspostable by the client user
+   * @type {boolean}
+   * @readonly
    */
-  isMemberMentioned(member) {
-    // Lazy-loading is used here to get around a circular dependency that breaks things
-    if (!GuildMember) GuildMember = require('./GuildMember');
-    if (this.mentions.everyone) return true;
-    if (this.mentions.users.has(member.id)) return true;
-    if (member instanceof GuildMember && member.roles.some(r => this.mentions.roles.has(r.id))) return true;
-    return false;
+  get crosspostable() {
+    const bitfield =
+      Permissions.FLAGS.SEND_MESSAGES |
+      (this.author.id === this.client.user.id ? Permissions.defaultBit : Permissions.FLAGS.MANAGE_MESSAGES);
+    const { channel } = this;
+    return Boolean(
+      channel?.type === 'GUILD_NEWS' &&
+        !this.flags.has(MessageFlags.FLAGS.CROSSPOSTED) &&
+        this.type === 'DEFAULT' &&
+        channel.viewable &&
+        channel.permissionsFor(this.client.user)?.has(bitfield, false) &&
+        !deletedMessages.has(this),
+    );
   }
 
   /**
-   * Options that can be passed into editMessage.
+   * Options that can be passed into {@link Message#edit}.
    * @typedef {Object} MessageEditOptions
-   * @property {Object} [embed] An embed to be added/edited
-   * @property {string|boolean} [code] Language for optional codeblock formatting to apply
-   * @property {MessageFlagsResolvable} [flags] Message flags to apply
+   * @property {?string} [content] Content to be edited
+   * @property {MessageEmbed[]|APIEmbed[]} [embeds] Embeds to be added/edited
+   * @property {MessageMentionOptions} [allowedMentions] Which mentions should be parsed from the message content
+   * @property {MessageFlags} [flags] Which flags to set for the message. Only `SUPPRESS_EMBEDS` can be edited.
+   * @property {MessageAttachment[]} [attachments] An array of attachments to keep,
+   * all attachments will be kept if omitted
+   * @property {FileOptions[]|BufferResolvable[]|MessageAttachment[]} [files] Files to add to the message
+   * @property {MessageActionRow[]|MessageActionRowOptions[]} [components]
+   * Action rows containing interactive components for the message (buttons, select menus)
    */
 
   /**
-   * Edit the content of the message.
-   * @param {StringResolvable} [content] The new content for the message
-   * @param {MessageEditOptions|RichEmbed} [options] The options to provide
+   * Edits the content of the message.
+   * @param {string|MessagePayload|MessageEditOptions} options The options to provide
    * @returns {Promise<Message>}
    * @example
    * // Update the content of a message
    * message.edit('This is my new content!')
-   *   .then(msg => console.log(`New message content: ${msg}`))
+   *   .then(msg => console.log(`Updated the content of a message to ${msg.content}`))
    *   .catch(console.error);
    */
-  edit(content, options) {
-    if (!options && typeof content === 'object' && !(content instanceof Array)) {
-      options = content;
-      content = '';
-    } else if (!options) {
-      options = {};
-    }
-    if (options instanceof RichEmbed) options = { embed: options };
-    return this.client.rest.methods.updateMessage(this, content, options);
+  edit(options) {
+    if (!this.channel) return Promise.reject(new Error('CHANNEL_NOT_CACHED'));
+    return this.channel.messages.edit(this, options);
   }
 
   /**
-   * Edit the content of the message, with a code block.
-   * @param {string} lang The language for the code block
-   * @param {StringResolvable} content The new content for the message
+   * Publishes a message in an announcement channel to all channels following it.
    * @returns {Promise<Message>}
-   * @deprecated
+   * @example
+   * // Crosspost a message
+   * if (message.channel.type === 'GUILD_NEWS') {
+   *   message.crosspost()
+   *     .then(() => console.log('Crossposted message'))
+   *     .catch(console.error);
+   * }
    */
-  editCode(lang, content) {
-    content = Util.escapeMarkdown(this.client.resolver.resolveString(content), true);
-    return this.edit(`\`\`\`${lang || ''}\n${content}\n\`\`\``);
+  crosspost() {
+    if (!this.channel) return Promise.reject(new Error('CHANNEL_NOT_CACHED'));
+    return this.channel.messages.crosspost(this.id);
   }
 
   /**
    * Pins this message to the channel's pinned messages.
    * @returns {Promise<Message>}
+   * @example
+   * // Pin a message
+   * message.pin()
+   *   .then(console.log)
+   *   .catch(console.error)
    */
-  pin() {
-    return this.client.rest.methods.pinMessage(this);
+  async pin() {
+    if (!this.channel) throw new Error('CHANNEL_NOT_CACHED');
+    await this.channel.messages.pin(this.id);
+    return this;
   }
 
   /**
    * Unpins this message from the channel's pinned messages.
    * @returns {Promise<Message>}
+   * @example
+   * // Unpin a message
+   * message.unpin()
+   *   .then(console.log)
+   *   .catch(console.error)
    */
-  unpin() {
-    return this.client.rest.methods.unpinMessage(this);
+  async unpin() {
+    if (!this.channel) throw new Error('CHANNEL_NOT_CACHED');
+    await this.channel.messages.unpin(this.id);
+    return this;
   }
 
   /**
-   * Add a reaction to the message.
-   * @param {string|Emoji|ReactionEmoji} emoji The emoji to react with
+   * Adds a reaction to the message.
+   * @param {EmojiIdentifierResolvable} emoji The emoji to react with
    * @returns {Promise<MessageReaction>}
    * @example
    * // React to a message with a unicode emoji
@@ -478,28 +759,27 @@ class Message {
    *   .catch(console.error);
    * @example
    * // React to a message with a custom emoji
-   * message.react(message.guild.emojis.get('123456789012345678'))
+   * message.react(message.guild.emojis.cache.get('123456789012345678'))
    *   .then(console.log)
    *   .catch(console.error);
    */
-  react(emoji) {
-    emoji = this.client.resolver.resolveEmojiIdentifier(emoji);
-    if (!emoji) throw new TypeError('Emoji must be a string or Emoji/ReactionEmoji');
+  async react(emoji) {
+    if (!this.channel) throw new Error('CHANNEL_NOT_CACHED');
+    await this.channel.messages.react(this.id, emoji);
 
-    return this.client.rest.methods.addMessageReaction(this, emoji);
-  }
-
-  /**
-   * Remove all reactions from a message.
-   * @returns {Promise<Message>}
-   */
-  clearReactions() {
-    return this.client.rest.methods.removeMessageReactions(this);
+    return this.client.actions.MessageReactionAdd.handle(
+      {
+        user: this.client.user,
+        channel: this.channel,
+        message: this,
+        emoji: Util.resolvePartialEmoji(emoji),
+      },
+      true,
+    ).reaction;
   }
 
   /**
    * Deletes the message.
-   * @param {number} [timeout=0] How long to wait to delete the message in milliseconds
    * @returns {Promise<Message>}
    * @example
    * // Delete a message
@@ -507,47 +787,91 @@ class Message {
    *   .then(msg => console.log(`Deleted message from ${msg.author.username}`))
    *   .catch(console.error);
    */
-  delete(timeout = 0) {
-    if (timeout <= 0) {
-      return this.client.rest.methods.deleteMessage(this);
-    } else {
-      return new Promise(resolve => {
-        this.client.setTimeout(() => {
-          resolve(this.delete());
-        }, timeout);
-      });
-    }
+  async delete() {
+    if (!this.channel) throw new Error('CHANNEL_NOT_CACHED');
+    await this.channel.messages.delete(this.id);
+    return this;
   }
 
   /**
-   * Reply to the message.
-   * @param {StringResolvable} [content] The content for the message
-   * @param {MessageOptions} [options] The options to provide
-   * @returns {Promise<Message|Message[]>}
+   * Options provided when sending a message as an inline reply.
+   * @typedef {BaseMessageOptions} ReplyMessageOptions
+   * @property {boolean} [failIfNotExists=true] Whether to error if the referenced message
+   * does not exist (creates a standard message in this case when false)
+   * @property {StickerResolvable[]} [stickers=[]] Stickers to send in the message
+   */
+
+  /**
+   * Send an inline reply to this message.
+   * @param {string|MessagePayload|ReplyMessageOptions} options The options to provide
+   * @returns {Promise<Message>}
    * @example
    * // Reply to a message
-   * message.reply('Hey, I\'m a reply!')
-   *   .then(sent => console.log(`Sent a reply to ${sent.author.username}`))
+   * message.reply('This is a reply!')
+   *   .then(() => console.log(`Replied to message "${message.content}"`))
    *   .catch(console.error);
    */
-  reply(content, options) {
-    if (!options && typeof content === 'object' && !(content instanceof Array)) {
-      options = content;
-      content = '';
-    } else if (!options) {
-      options = {};
+  reply(options) {
+    if (!this.channel) return Promise.reject(new Error('CHANNEL_NOT_CACHED'));
+    let data;
+
+    if (options instanceof MessagePayload) {
+      data = options;
+    } else {
+      data = MessagePayload.create(this, options, {
+        reply: {
+          messageReference: this,
+          failIfNotExists: options?.failIfNotExists ?? this.client.options.failIfNotExists,
+        },
+      });
     }
-    return this.channel.send(content, Object.assign(options, { reply: this.member || this.author }));
+    return this.channel.send(data);
   }
 
   /**
-   * Marks the message as read.
-   * <warn>This is only available when using a user account.</warn>
-   * @returns {Promise<Message>}
-   * @deprecated
+   * A number that is allowed to be the duration (in minutes) of inactivity after which a thread is automatically
+   * archived. This can be:
+   * * `60` (1 hour)
+   * * `1440` (1 day)
+   * * `4320` (3 days) <warn>This is only available when the guild has the `THREE_DAY_THREAD_ARCHIVE` feature.</warn>
+   * * `10080` (7 days) <warn>This is only available when the guild has the `SEVEN_DAY_THREAD_ARCHIVE` feature.</warn>
+   * * `'MAX'` Based on the guild's features
+   * @typedef {number|string} ThreadAutoArchiveDuration
    */
-  acknowledge() {
-    return this.client.rest.methods.ackMessage(this);
+
+  /**
+   * Options for starting a thread on a message.
+   * @typedef {Object} StartThreadOptions
+   * @property {string} name The name of the new thread
+   * @property {ThreadAutoArchiveDuration} [autoArchiveDuration=this.channel.defaultAutoArchiveDuration] The amount of
+   * time (in minutes) after which the thread should automatically archive in case of no recent activity
+   * @property {string} [reason] Reason for creating the thread
+   * @property {number} [rateLimitPerUser] The rate limit per user (slowmode) for the thread in seconds
+   */
+
+  /**
+   * Create a new public thread from this message
+   * @see ThreadManager#create
+   * @param {StartThreadOptions} [options] Options for starting a thread on this message
+   * @returns {Promise<ThreadChannel>}
+   */
+  startThread(options = {}) {
+    if (!this.channel) return Promise.reject(new Error('CHANNEL_NOT_CACHED'));
+    if (!['GUILD_TEXT', 'GUILD_NEWS'].includes(this.channel.type)) {
+      return Promise.reject(new Error('MESSAGE_THREAD_PARENT'));
+    }
+    if (this.hasThread) return Promise.reject(new Error('MESSAGE_EXISTING_THREAD'));
+    return this.channel.threads.create({ ...options, startMessage: this });
+  }
+
+  /**
+   * Fetch this message.
+   * @param {boolean} [force=true] Whether to skip the cache check and request the API
+   * @returns {Promise<Message>}
+   */
+  fetch(force = true) {
+    if (!this.channel) return Promise.reject(new Error('CHANNEL_NOT_CACHED'));
+    return this.channel.messages.fetch(this.id, { force });
   }
 
   /**
@@ -555,12 +879,13 @@ class Message {
    * @returns {Promise<?Webhook>}
    */
   fetchWebhook() {
-    if (!this.webhookID) return Promise.reject(new Error('The message was not sent by a webhook.'));
-    return this.client.fetchWebhook(this.webhookID);
+    if (!this.webhookId) return Promise.reject(new Error('WEBHOOK_MESSAGE'));
+    if (this.webhookId === this.applicationId) return Promise.reject(new Error('WEBHOOK_APPLICATION'));
+    return this.client.fetchWebhook(this.webhookId);
   }
 
   /**
-   * Suppresses or unsuppresses embeds on a message
+   * Suppresses or unsuppresses embeds on a message.
    * @param {boolean} [suppress=true] If the embeds should be suppressed or not
    * @returns {Promise<Message>}
    */
@@ -573,7 +898,24 @@ class Message {
       flags.remove(MessageFlags.FLAGS.SUPPRESS_EMBEDS);
     }
 
-    return this.edit(undefined, { flags });
+    return this.edit({ flags });
+  }
+
+  /**
+   * Removes the attachments from this message.
+   * @returns {Promise<Message>}
+   */
+  removeAttachments() {
+    return this.edit({ attachments: [] });
+  }
+
+  /**
+   * Resolves a component by a custom id.
+   * @param {string} customId The custom id to resolve against
+   * @returns {?MessageActionRowComponent}
+   */
+  resolveComponent(customId) {
+    return this.components.flatMap(row => row.components).find(component => component.customId === customId) ?? null;
   }
 
   /**
@@ -581,7 +923,7 @@ class Message {
    * without checking all the properties, use `message.id === message2.id`, which is much more efficient. This
    * method allows you to see if there are differences in content, embeds, attachments, nonce and tts properties.
    * @param {Message} message The message to compare it to
-   * @param {Object} rawData Raw data passed through the WebSocket about this message
+   * @param {APIMessage} rawData Raw data passed through the WebSocket about this message
    * @returns {boolean}
    */
   equals(message, rawData) {
@@ -589,7 +931,8 @@ class Message {
     const embedUpdate = !message.author && !message.attachments;
     if (embedUpdate) return this.id === message.id && this.embeds.length === message.embeds.length;
 
-    let equal = this.id === message.id &&
+    let equal =
+      this.id === message.id &&
       this.author.id === message.author.id &&
       this.content === message.content &&
       this.tts === message.tts &&
@@ -598,12 +941,21 @@ class Message {
       this.attachments.length === message.attachments.length;
 
     if (equal && rawData) {
-      equal = this.mentions.everyone === message.mentions.everyone &&
+      equal =
+        this.mentions.everyone === message.mentions.everyone &&
         this.createdTimestamp === new Date(rawData.timestamp).getTime() &&
         this.editedTimestamp === new Date(rawData.edited_timestamp).getTime();
     }
 
     return equal;
+  }
+
+  /**
+   * Whether this message is from a guild.
+   * @returns {boolean}
+   */
+  inGuild() {
+    return Boolean(this.guildId);
   }
 
   /**
@@ -617,45 +969,18 @@ class Message {
     return this.content;
   }
 
-  _addReaction(emoji, user) {
-    const emojiID = emoji.id ? `${emoji.name}:${emoji.id}` : emoji.name;
-    let reaction;
-    if (this.reactions.has(emojiID)) {
-      reaction = this.reactions.get(emojiID);
-      if (!reaction.me) reaction.me = user.id === this.client.user.id;
-    } else {
-      reaction = new MessageReaction(this, emoji, 0, user.id === this.client.user.id);
-      this.reactions.set(emojiID, reaction);
-    }
-    if (!reaction.users.has(user.id)) {
-      reaction.users.set(user.id, user);
-      reaction.count++;
-    }
-    return reaction;
-  }
-
-  _removeReaction(emoji, user) {
-    const emojiID = emoji.id ? `${emoji.name}:${emoji.id}` : emoji.name;
-    if (this.reactions.has(emojiID)) {
-      const reaction = this.reactions.get(emojiID);
-      if (!user) {
-        this.reactions.delete(emojiID);
-        return reaction;
-      }
-      if (reaction.users.has(user.id)) {
-        reaction.users.delete(user.id);
-        reaction.count--;
-        if (user.id === this.client.user.id) reaction.me = false;
-        if (reaction.count <= 0) this.reactions.delete(emojiID);
-        return reaction;
-      }
-    }
-    return null;
-  }
-
-  _clearReactions() {
-    this.reactions.clear();
+  toJSON() {
+    return super.toJSON({
+      channel: 'channelId',
+      author: 'authorId',
+      groupActivityApplication: 'groupActivityApplicationId',
+      guild: 'guildId',
+      cleanContent: true,
+      member: false,
+      reactions: false,
+    });
   }
 }
 
-module.exports = Message;
+exports.Message = Message;
+exports.deletedMessages = deletedMessages;

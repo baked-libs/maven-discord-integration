@@ -1,17 +1,15 @@
+'use strict';
+
+const Base = require('./Base');
 const { MembershipStates } = require('../util/Constants');
 
 /**
  * Represents a Client OAuth2 Application Team Member.
+ * @extends {Base}
  */
-class TeamMember {
-  constructor(client, team, data) {
-    /**
-     * The client that instantiated the Team Member
-     * @name TeamMember#client
-     * @type {Client}
-     * @readonly
-     */
-    Object.defineProperty(this, 'client', { value: client });
+class TeamMember extends Base {
+  constructor(team, data) {
+    super(team.client);
 
     /**
      * The Team this member is part of
@@ -23,27 +21,33 @@ class TeamMember {
   }
 
   _patch(data) {
-    /**
-     * The permissions this Team Member has with regard to the team
-     * @type {string[]}
-     */
-    this.permissions = data.permissions;
+    if ('permissions' in data) {
+      /**
+       * The permissions this Team Member has with regard to the team
+       * @type {string[]}
+       */
+      this.permissions = data.permissions;
+    }
 
-    /**
-     * The membership state this Team Member has with regard to the team
-     * @type {MembershipStates}
-     */
-    this.membershipState = MembershipStates[data.membership_state];
+    if ('membership_state' in data) {
+      /**
+       * The permissions this Team Member has with regard to the team
+       * @type {MembershipState}
+       */
+      this.membershipState = MembershipStates[data.membership_state];
+    }
 
-    /**
-     * The user for this Team Member
-     * @type {User}
-     */
-    this.user = this.client.dataManager.newUser(data.user);
+    if ('user' in data) {
+      /**
+       * The user for this Team Member
+       * @type {User}
+       */
+      this.user = this.client.users._add(data.user);
+    }
   }
 
   /**
-   * The ID of the Team Member
+   * The Team Member's id
    * @type {Snowflake}
    * @readonly
    */
@@ -52,11 +56,11 @@ class TeamMember {
   }
 
   /**
-   * When concatenated with a string, this automatically returns the team members's mention instead of the
+   * When concatenated with a string, this automatically returns the team member's mention instead of the
    * TeamMember object.
    * @returns {string}
    * @example
-   * // Logs: Team Member's mention: <@123456789>
+   * // Logs: Team Member's mention: <@123456789012345678>
    * console.log(`Team Member's mention: ${teamMember}`);
    */
   toString() {

@@ -1,5 +1,9 @@
+'use strict';
+
+const { setTimeout } = require('node:timers');
 const Action = require('./Action');
-const Constants = require('../../util/Constants');
+const { deletedGuilds } = require('../../structures/Guild');
+const { Events } = require('../../util/Constants');
 
 class GuildDeleteAction extends Action {
   constructor(client) {
@@ -10,16 +14,18 @@ class GuildDeleteAction extends Action {
   handle(data) {
     const client = this.client;
 
-    let guild = client.guilds.get(data.id);
+    let guild = client.guilds.cache.get(data.id);
     if (guild) {
-      for (const channel of guild.channels.values()) {
-        if (channel.type === 'text') channel.stopTyping(true);
-      }
-
-      if (guild.available && data.unavailable) {
+      if (data.unavailable) {
         // Guild is unavailable
         guild.available = false;
-        client.emit(Constants.Events.GUILD_UNAVAILABLE, guild);
+
+        /**
+         * Emitted whenever a guild becomes unavailable, likely due to a server outage.
+         * @event Client#guildUnavailable
+         * @param {Guild} guild The guild that has become unavailable
+         */
+        client.emit(Events.GUILD_UNAVAILABLE, guild);
 
         // Stops the GuildDelete packet thinking a guild was actually deleted,
         // handles emitting of event itself
@@ -28,30 +34,32 @@ class GuildDeleteAction extends Action {
         };
       }
 
-      for (const channel of guild.channels.values()) this.client.channels.delete(channel.id);
-      if (guild.voiceConnection) guild.voiceConnection.disconnect();
+      for (const channel of guild.channels.cache.values()) this.client.channels._remove(channel.id);
+      client.voice.adapters.get(data.id)?.destroy();
 
       // Delete guild
-      client.guilds.delete(guild.id);
+      client.guilds.cache.delete(guild.id);
+      deletedGuilds.add(guild);
+
+      /**
+       * Emitted whenever a guild kicks the client or the guild is deleted/left.
+       * @event Client#guildDelete
+       * @param {Guild} guild The guild that was deleted
+       */
+      client.emit(Events.GUILD_DELETE, guild);
+
       this.deleted.set(guild.id, guild);
       this.scheduleForDeletion(guild.id);
     } else {
-      guild = this.deleted.get(data.id) || null;
+      guild = this.deleted.get(data.id) ?? null;
     }
-    if (guild) guild.deleted = true;
 
     return { guild };
   }
 
   scheduleForDeletion(id) {
-    this.client.setTimeout(() => this.deleted.delete(id), this.client.options.restWsBridgeTimeout);
+    setTimeout(() => this.deleted.delete(id), this.client.options.restWsBridgeTimeout).unref();
   }
 }
-
-/**
- * Emitted whenever a guild becomes unavailable, likely due to a server outage.
- * @event Client#guildUnavailable
- * @param {Guild} guild The guild that has become unavailable
- */
 
 module.exports = GuildDeleteAction;

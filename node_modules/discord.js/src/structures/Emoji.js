@@ -1,124 +1,79 @@
-const Constants = require('../util/Constants');
-const Collection = require('../util/Collection');
-const Permissions = require('../util/Permissions');
-const Snowflake = require('../util/Snowflake');
+'use strict';
+
+const process = require('node:process');
+const Base = require('./Base');
+const SnowflakeUtil = require('../util/SnowflakeUtil');
 
 /**
- * Represents a custom emoji.
+ * @type {WeakSet<Emoji>}
+ * @private
+ * @internal
  */
-class Emoji {
-  constructor(guild, data) {
-    /**
-     * The client that instantiated this object
-     * @name Emoji#client
-     * @type {Client}
-     * @readonly
-     */
-    Object.defineProperty(this, 'client', { value: guild.client });
+const deletedEmojis = new WeakSet();
+let deprecationEmittedForDeleted = false;
 
-    /**
-     * The guild this emoji is part of
-     * @type {Guild}
-     */
-    this.guild = guild;
+/**
+ * Represents raw emoji data from the API
+ * @typedef {APIEmoji} RawEmoji
+ * @property {?Snowflake} id The emoji's id
+ * @property {?string} name The emoji's name
+ * @property {?boolean} animated Whether the emoji is animated
+ */
 
+/**
+ * Represents an emoji, see {@link GuildEmoji} and {@link ReactionEmoji}.
+ * @extends {Base}
+ */
+class Emoji extends Base {
+  constructor(client, emoji) {
+    super(client);
     /**
-     * Whether this emoji has been deleted
-     * @type {boolean}
+     * Whether or not the emoji is animated
+     * @type {?boolean}
      */
-    this.deleted = false;
-
-    this.setup(data);
-  }
-
-  setup(data) {
-    /**
-     * The ID of the emoji
-     * @type {Snowflake}
-     */
-    this.id = data.id;
+    this.animated = emoji.animated ?? null;
 
     /**
-     * The name of the emoji
-     * @type {string}
+     * The emoji's name
+     * @type {?string}
      */
-    this.name = data.name;
+    this.name = emoji.name ?? null;
 
     /**
-     * Whether or not this emoji requires colons surrounding it
-     * @type {boolean}
+     * The emoji's id
+     * @type {?Snowflake}
      */
-    this.requiresColons = data.require_colons;
-
-    /**
-     * Whether this emoji is managed by an external service
-     * @type {boolean}
-     */
-    this.managed = data.managed;
-
-    /**
-     * Whether this emoji is animated
-     * @type {boolean}
-     */
-    this.animated = data.animated;
-
-    /**
-     * Whether this emoji is available
-     * @type {boolean}
-     * @name Emoji#available
-     */
-    if (typeof data.available !== 'undefined') this.available = data.available;
-
-    this._roles = data.roles;
+    this.id = emoji.id;
   }
 
   /**
-   * The timestamp the emoji was created at
-   * @type {number}
-   * @readonly
-   */
-  get createdTimestamp() {
-    return Snowflake.deconstruct(this.id).timestamp;
-  }
-
-  /**
-   * The time the emoji was created
-   * @type {Date}
-   * @readonly
-   */
-  get createdAt() {
-    return new Date(this.createdTimestamp);
-  }
-
-  /**
-   * Whether the emoji is deletable by the client user
+   * Whether or not the structure has been deleted
    * @type {boolean}
-   * @readonly
+   * @deprecated This will be removed in the next major version, see https://github.com/discordjs/discord.js/issues/7091
    */
-  get deletable() {
-    return !this.managed && this.guild.me.hasPermission(Permissions.FLAGS.MANAGE_EMOJIS);
-  }
-
-  /**
-   * A collection of roles this emoji is active for (empty if all), mapped by role ID
-   * @type {Collection<Snowflake, Role>}
-   * @readonly
-   */
-  get roles() {
-    const roles = new Collection();
-    for (const role of this._roles) {
-      if (this.guild.roles.has(role)) roles.set(role, this.guild.roles.get(role));
+  get deleted() {
+    if (!deprecationEmittedForDeleted) {
+      deprecationEmittedForDeleted = true;
+      process.emitWarning(
+        'Emoji#deleted is deprecated, see https://github.com/discordjs/discord.js/issues/7091.',
+        'DeprecationWarning',
+      );
     }
-    return roles;
+
+    return deletedEmojis.has(this);
   }
 
-  /**
-   * The URL to the emoji file
-   * @type {string}
-   * @readonly
-   */
-  get url() {
-    return Constants.Endpoints.CDN(this.client.options.http.cdn).Emoji(this.id, this.animated ? 'gif' : 'png');
+  set deleted(value) {
+    if (!deprecationEmittedForDeleted) {
+      deprecationEmittedForDeleted = true;
+      process.emitWarning(
+        'Emoji#deleted is deprecated, see https://github.com/discordjs/discord.js/issues/7091.',
+        'DeprecationWarning',
+      );
+    }
+
+    if (value) deletedEmojis.add(this);
+    else deletedEmojis.delete(this);
   }
 
   /**
@@ -127,147 +82,67 @@ class Emoji {
    * @readonly
    */
   get identifier() {
-    if (this.id) return `${this.name}:${this.id}`;
+    if (this.id) return `${this.animated ? 'a:' : ''}${this.name}:${this.id}`;
     return encodeURIComponent(this.name);
   }
 
   /**
-   * Data for editing an emoji.
-   * @typedef {Object} EmojiEditData
-   * @property {string} [name] The name of the emoji
-   * @property {Collection<Snowflake, Role>|Array<Snowflake|Role>} [roles] Roles to restrict emoji to
+   * The URL to the emoji file if it's a custom emoji
+   * @type {?string}
+   * @readonly
    */
-
-  /**
-   * Edits the emoji.
-   * @param {EmojiEditData} data The new data for the emoji
-   * @param {string} [reason] Reason for editing this emoji
-   * @returns {Promise<Emoji>}
-   * @example
-   * // Edit an emoji
-   * emoji.edit({name: 'newemoji'})
-   *   .then(e => console.log(`Edited emoji ${e}`))
-   *   .catch(console.error);
-   */
-  edit(data, reason) {
-    return this.client.rest.methods.updateEmoji(this, data, reason);
+  get url() {
+    return this.id && this.client.rest.cdn.Emoji(this.id, this.animated ? 'gif' : 'png');
   }
 
   /**
-   * Set the name of the emoji.
-   * @param {string} name The new name for the emoji
-   * @param {string} [reason] The reason for changing the emoji's name
-   * @returns {Promise<Emoji>}
+   * The timestamp the emoji was created at, or null if unicode
+   * @type {?number}
+   * @readonly
    */
-  setName(name, reason) {
-    return this.edit({ name }, reason);
+  get createdTimestamp() {
+    return this.id && SnowflakeUtil.timestampFrom(this.id);
   }
 
   /**
-   * Fetches the author for this emoji
-   * @returns {Promise<User>}
+   * The time the emoji was created at, or null if unicode
+   * @type {?Date}
+   * @readonly
    */
-  fetchAuthor() {
-    if (this.managed) return Promise.reject(new Error('Emoji is managed and has no Author.'));
-    if (!this.guild.me.permissions.has(Permissions.FLAGS.MANAGE_EMOJIS)) {
-      return Promise.reject(
-        new Error(`Client must have Manage Emoji permission in guild ${this.guild} to see emoji authors.`)
-      );
-    }
-    return this.client.rest.makeRequest('get', Constants.Endpoints.Guild(this.guild).Emoji(this.id), true)
-      .then(emoji => this.client.dataManager.newUser(emoji.user));
+  get createdAt() {
+    return this.id && new Date(this.createdTimestamp);
   }
 
   /**
-   * Add a role to the list of roles that can use this emoji.
-   * @param {Role} role The role to add
-   * @returns {Promise<Emoji>}
-   */
-  addRestrictedRole(role) {
-    return this.addRestrictedRoles([role]);
-  }
-
-  /**
-   * Add multiple roles to the list of roles that can use this emoji.
-   * @param {Role[]} roles Roles to add
-   * @returns {Promise<Emoji>}
-   */
-  addRestrictedRoles(roles) {
-    const newRoles = new Collection(this.roles);
-    for (const role of roles) {
-      if (this.guild.roles.has(role.id)) newRoles.set(role.id, role);
-    }
-    return this.edit({ roles: newRoles });
-  }
-
-  /**
-   * Remove a role from the list of roles that can use this emoji.
-   * @param {Role} role The role to remove
-   * @returns {Promise<Emoji>}
-   */
-  removeRestrictedRole(role) {
-    return this.removeRestrictedRoles([role]);
-  }
-
-  /**
-   * Remove multiple roles from the list of roles that can use this emoji.
-   * @param {Role[]} roles Roles to remove
-   * @returns {Promise<Emoji>}
-   */
-  removeRestrictedRoles(roles) {
-    const newRoles = new Collection(this.roles);
-    for (const role of roles) {
-      if (newRoles.has(role.id)) newRoles.delete(role.id);
-    }
-    return this.edit({ roles: newRoles });
-  }
-
-
-  /**
-   * Deletes the emoji.
-   * @param {string} [reason] Reason for deleting the emoji
-   * @returns {Promise<Emoji>}
-   */
-  delete(reason) {
-    return this.client.rest.methods.deleteEmoji(this, reason);
-  }
-
-  /**
-   * When concatenated with a string, this automatically returns the emoji mention rather than the object.
+   * When concatenated with a string, this automatically returns the text required to form a graphical emoji on Discord
+   * instead of the Emoji object.
    * @returns {string}
    * @example
-   * // Send an emoji:
-   * const emoji = guild.emojis.first();
-   * msg.reply(`Hello! ${emoji}`);
+   * // Send a custom emoji from a guild:
+   * const emoji = guild.emojis.cache.first();
+   * msg.channel.send(`Hello! ${emoji}`);
+   * @example
+   * // Send the emoji used in a reaction to the channel the reaction is part of
+   * reaction.message.channel.send(`The emoji used was: ${reaction.emoji}`);
    */
   toString() {
-    if (!this.id || !this.requiresColons) {
-      return this.name;
-    }
-
-    return `<${this.animated ? 'a' : ''}:${this.name}:${this.id}>`;
+    return this.id ? `<${this.animated ? 'a' : ''}:${this.name}:${this.id}>` : this.name;
   }
 
-  /**
-   * Whether this emoji is the same as another one.
-   * @param {Emoji|Object} other The emoji to compare it to
-   * @returns {boolean} Whether the emoji is equal to the given emoji or not
-   */
-  equals(other) {
-    if (other instanceof Emoji) {
-      return (
-        other.id === this.id &&
-        other.name === this.name &&
-        other.managed === this.managed &&
-        other.requiresColons === this.requiresColons
-      );
-    } else {
-      return (
-        other.id === this.id &&
-        other.name === this.name
-      );
-    }
+  toJSON() {
+    return super.toJSON({
+      guild: 'guildId',
+      createdTimestamp: true,
+      url: true,
+      identifier: true,
+    });
   }
 }
 
-module.exports = Emoji;
+exports.Emoji = Emoji;
+exports.deletedEmojis = deletedEmojis;
+
+/**
+ * @external APIEmoji
+ * @see {@link https://discord.com/developers/docs/resources/emoji#emoji-object}
+ */

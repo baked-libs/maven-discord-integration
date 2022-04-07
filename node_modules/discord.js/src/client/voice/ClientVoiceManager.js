@@ -1,85 +1,43 @@
-const Collection = require('../../util/Collection');
-const VoiceConnection = require('./VoiceConnection');
+'use strict';
+
+const { Events } = require('../../util/Constants');
 
 /**
- * Manages all the voice stuff for the client.
- * @private
+ * Manages voice connections for the client
  */
 class ClientVoiceManager {
   constructor(client) {
     /**
      * The client that instantiated this voice manager
      * @type {Client}
+     * @readonly
+     * @name ClientVoiceManager#client
      */
-    this.client = client;
+    Object.defineProperty(this, 'client', { value: client });
 
     /**
-     * A collection mapping connection IDs to the Connection objects
-     * @type {Collection<Snowflake, VoiceConnection>}
+     * Maps guild ids to voice adapters created for use with @discordjs/voice.
+     * @type {Map<Snowflake, Object>}
      */
-    this.connections = new Collection();
+    this.adapters = new Map();
 
-    this.client.on('self.voiceServer', this.onVoiceServer.bind(this));
-    this.client.on('self.voiceStateUpdate', this.onVoiceStateUpdate.bind(this));
-  }
-
-  onVoiceServer({ guild_id, token, endpoint }) {
-    const connection = this.connections.get(guild_id);
-    if (connection) connection.setTokenAndEndpoint(token, endpoint);
-  }
-
-  onVoiceStateUpdate({ guild_id, session_id, channel_id }) {
-    const connection = this.connections.get(guild_id);
-    if (!connection) return;
-    if (!channel_id) {
-      connection._disconnect();
-      this.connections.delete(guild_id);
-      return;
-    }
-
-    connection.channel = this.client.channels.get(channel_id);
-    connection.setSessionID(session_id);
-  }
-
-  /**
-   * Sets up a request to join a voice channel.
-   * @param {VoiceChannel} channel The voice channel to join
-   * @returns {Promise<VoiceConnection>}
-   */
-  joinChannel(channel) {
-    return new Promise((resolve, reject) => {
-      if (!channel.joinable) {
-        if (channel.full) {
-          throw new Error('You do not have permission to join this voice channel; it is full.');
-        } else {
-          throw new Error('You do not have permission to join this voice channel.');
+    client.on(Events.SHARD_DISCONNECT, (_, shardId) => {
+      for (const [guildId, adapter] of this.adapters.entries()) {
+        if (client.guilds.cache.get(guildId)?.shardId === shardId) {
+          adapter.destroy();
         }
       }
-
-      let connection = this.connections.get(channel.guild.id);
-
-      if (connection) {
-        if (connection.channel.id !== channel.id) {
-          this.connections.get(channel.guild.id).updateChannel(channel);
-        }
-        resolve(connection);
-        return;
-      } else {
-        connection = new VoiceConnection(this, channel);
-        this.connections.set(channel.guild.id, connection);
-      }
-
-      connection.once('failed', reason => {
-        this.connections.delete(channel.guild.id);
-        reject(reason);
-      });
-
-      connection.once('authenticated', () => {
-        connection.once('ready', () => resolve(connection));
-        connection.once('error', reject);
-        connection.once('disconnect', () => this.connections.delete(channel.guild.id));
-      });
     });
+  }
+
+  onVoiceServer(payload) {
+    this.adapters.get(payload.guild_id)?.onVoiceServerUpdate(payload);
+  }
+
+  onVoiceStateUpdate(payload) {
+    if (payload.guild_id && payload.session_id && payload.user_id === this.client.user?.id) {
+      this.adapters.get(payload.guild_id)?.onVoiceStateUpdate(payload);
+    }
   }
 }
 

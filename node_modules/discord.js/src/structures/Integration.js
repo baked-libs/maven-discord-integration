@@ -1,22 +1,29 @@
+'use strict';
+
+const Base = require('./Base');
+const IntegrationApplication = require('./IntegrationApplication');
+
 /**
  * The information account for an integration
  * @typedef {Object} IntegrationAccount
- * @property {string} id The id of the account
+ * @property {Snowflake|string} id The id of the account
  * @property {string} name The name of the account
+ */
+
+/**
+ * The type of an {@link Integration}. This can be:
+ * * `twitch`
+ * * `youtube`
+ * * `discord`
+ * @typedef {string} IntegrationType
  */
 
 /**
  *  Represents a guild integration.
  */
-class Integration {
+class Integration extends Base {
   constructor(client, data, guild) {
-    /**
-     * The client that created this integration
-     * @name Integration#client
-     * @type {Client}
-     * @readonly
-     */
-    Object.defineProperty(this, 'client', { value: client });
+    super(client);
 
     /**
      * The guild this integration belongs to
@@ -26,7 +33,7 @@ class Integration {
 
     /**
      * The integration id
-     * @type {Snowflake}
+     * @type {Snowflake|string}
      */
     this.id = data.id;
 
@@ -35,9 +42,10 @@ class Integration {
      * @type {string}
      */
     this.name = data.name;
+
     /**
-     * The integration type (twitch, youtube, etc)
-     * @type {string}
+     * The integration type
+     * @type {IntegrationType}
      */
     this.type = data.type;
 
@@ -49,21 +57,35 @@ class Integration {
 
     /**
      * Whether this integration is syncing
-     * @type {boolean}
+     * @type {?boolean}
      */
     this.syncing = data.syncing;
 
     /**
      * The role that this integration uses for subscribers
-     * @type {Role}
+     * @type {?Role}
      */
-    this.role = this.guild.roles.get(data.role_id);
+    this.role = this.guild.roles.cache.get(data.role_id);
 
-    /**
-     * The user for this integration
-     * @type {User}
-     */
-    this.user = this.client.dataManager.newUser(data.user);
+    if ('enable_emoticons' in data) {
+      /**
+       * Whether emoticons should be synced for this integration (twitch only currently)
+       * @type {?boolean}
+       */
+      this.enableEmoticons = data.enable_emoticons;
+    } else {
+      this.enableEmoticons ??= null;
+    }
+
+    if (data.user) {
+      /**
+       * The user for this integration
+       * @type {?User}
+       */
+      this.user = this.client.users._add(data.user);
+    } else {
+      this.user = null;
+    }
 
     /**
      * The account integration information
@@ -73,68 +95,73 @@ class Integration {
 
     /**
      * The last time this integration was last synced
-     * @type {number}
+     * @type {?number}
      */
     this.syncedAt = data.synced_at;
+
+    if ('subscriber_count' in data) {
+      /**
+       * How many subscribers this integration has
+       * @type {?number}
+       */
+      this.subscriberCount = data.subscriber_count;
+    } else {
+      this.subscriberCount ??= null;
+    }
+
+    if ('revoked' in data) {
+      /**
+       * Whether this integration has been revoked
+       * @type {?boolean}
+       */
+      this.revoked = data.revoked;
+    } else {
+      this.revoked ??= null;
+    }
+
     this._patch(data);
   }
 
+  /**
+   * All roles that are managed by this integration
+   * @type {Collection<Snowflake, Role>}
+   * @readonly
+   */
+  get roles() {
+    const roles = this.guild.roles.cache;
+    return roles.filter(role => role.tags?.integrationId === this.id);
+  }
+
   _patch(data) {
-    /**
-     * The behavior of expiring subscribers
-     * @type {number}
-     */
-    this.expireBehavior = data.expire_behavior;
-
-    /**
-     * The grace period before expiring subscribers
-     * @type {number}
-     */
-    this.expireGracePeriod = data.expire_grace_period;
-  }
-
-  /**
-   * Syncs this integration
-   * @returns {Promise<Integration>}
-   */
-  sync() {
-    this.syncing = true;
-    return this.client.rest.methods.syncIntegration(this)
-      .then(() => {
-        this.syncing = false;
-        this.syncedAt = Date.now();
-        return this;
-      });
-  }
-
-  /**
-   * The data for editing an integration.
-   * @typedef {Object} IntegrationEditData
-   * @property {number} [expireBehavior] The new behaviour of expiring subscribers
-   * @property {number} [expireGracePeriod] The new grace period before expiring subscribers
-   */
-
-  /**
-   * Edits this integration.
-   * @param {IntegrationEditData} data The data to edit this integration with
-   * @param {string} reason Reason for editing this integration
-   * @returns {Promise<Integration>}
-   */
-  edit(data, reason) {
-    if ('expireBehavior' in data) {
-      data.expire_behavior = data.expireBehavior;
-      data.expireBehavior = undefined;
+    if ('expire_behavior' in data) {
+      /**
+       * The behavior of expiring subscribers
+       * @type {?number}
+       */
+      this.expireBehavior = data.expire_behavior;
     }
-    if ('expireGracePeriod' in data) {
-      data.expire_grace_period = data.expireGracePeriod;
-      data.expireGracePeriod = undefined;
+
+    if ('expire_grace_period' in data) {
+      /**
+       * The grace period before expiring subscribers
+       * @type {?number}
+       */
+      this.expireGracePeriod = data.expire_grace_period;
     }
-    // The option enable_emoticons is only available for Twitch at this moment
-    return this.client.rest.methods.editIntegration(this, data, reason)
-      .then(() => {
-        this._patch(data);
-        return this;
-      });
+
+    if ('application' in data) {
+      if (this.application) {
+        this.application._patch(data.application);
+      } else {
+        /**
+         * The application for this integration
+         * @type {?IntegrationApplication}
+         */
+        this.application = new IntegrationApplication(this.client, data.application);
+      }
+    } else {
+      this.application ??= null;
+    }
   }
 
   /**
@@ -142,9 +169,17 @@ class Integration {
    * @returns {Promise<Integration>}
    * @param {string} [reason] Reason for deleting this integration
    */
-  delete(reason) {
-    return this.client.rest.methods.deleteIntegration(this, reason)
-      .then(() => this);
+  async delete(reason) {
+    await this.client.api.guilds(this.guild.id).integrations(this.id).delete({ reason });
+    return this;
+  }
+
+  toJSON() {
+    return super.toJSON({
+      role: 'roleId',
+      guild: 'guildId',
+      user: 'userId',
+    });
   }
 }
 
