@@ -1,11 +1,11 @@
-const discord = require('discord.js')
+import { WebhookClient, MessageEmbed } from 'discord.js'
 const MAX_MESSAGE_LENGTH = 40
 
-module.exports.send = (id, token, repo, branch, url, commits, size) => new Promise((resolve, reject) => {
+export function send(id, token, repo, branch, url, commits, size) { return new Promise((resolve, reject) => {
     var client
     console.log("Preparing Webhook...")
     try {
-        client = new discord.WebhookClient(id, token)
+        client = new WebhookClient(id, token)
     }
     catch (error) {
         reject(error.message)
@@ -16,19 +16,23 @@ module.exports.send = (id, token, repo, branch, url, commits, size) => new Promi
         console.log("Successfully sent the message!")
         resolve()
     }, reject)
-})
+})}
 
 function createEmbed(repo, branch, url, commits, size) {
     console.log("Constructing Embed...")
     var latest = commits[0]
 
-    var embed = new discord.RichEmbed()
+    var embed = new MessageEmbed()
                 .setColor(0x00BB22)
                 //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
-                .setTitle(size + (size == 1 ? " commit was " : " commits were ") + "added to " + branch)
+                .setTitle({
+                    title: `${size} ${size == 1 ? ' commit was ' : ' commits were '} added to ${branch}`
+                })
                 .setDescription(getChangeLog(commits, size))
                 .setTimestamp(Date.parse(latest.timestamp))
-                .setFooter(`⚡ Edited by @${commits[0].author.username}`)
+                .setFooter({
+                    text: `⚡ Edited by @${commits[0].author.username}`
+                })
 
     return embed
 }
