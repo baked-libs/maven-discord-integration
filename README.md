@@ -48,3 +48,8 @@ You can see the example file at [/.github/workflows/discord-push.yml](/.github/w
 ### Need more help ? [See this post on DEV](https://dev.to/mrrobot/follow-your-repository-from-discord-52ge) 
 
 [![Badge forked from](https://img.shields.io/badge/Forked-from%20Slimefun%2Fdiscordwebhook-black?logo=GitHub&style=for-the-badge)](https://github.com/Slimefun/discord-webhook)
+
+
+### Notable documentations 
+
+[How to get Commits on GitHub](https://docs.github.com/en/rest/reference/commits#get-a-commit)
