@@ -1,5 +1,4 @@
-const discord = require('discord.js')
-const {MessageEmbed} = require("discord.js")
+const {MessageEmbed, WebhookClient} = require("discord.js")
 const MAX_MESSAGE_LENGTH = 40
 
 module.exports.send = (id, token, repo, branch, url, commits, size) =>
@@ -7,7 +6,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size) =>
         let client
         console.log('Preparing Webhook...')
         try {
-            client = new discord.WebhookClient({id: id, token: token})
+            client = new WebhookClient({id: id, token: token})
         } catch (error) {
             console.log('Error creating Webhook')
             reject(error.message)
