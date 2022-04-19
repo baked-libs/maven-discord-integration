@@ -23,17 +23,18 @@ module.exports.send = (id, token, repo, branch, url, commits, size) =>
 function createEmbed(repo, branch, url, commits, size) {
     console.log('Constructing Embed...')
     const latest = commits[0]
+    console.log(latest)
     return new MessageEmbed()
         .setColor(0x00bb22)
         //.setTitle(size + (size == 1 ? " Commit was " : " Commits were ") + "added to " + repo + " (" + branch + ")")
         .setAuthor({
             name: `${size} ${size === 1 ? 'commit was ' : 'commits were'} added to ${branch}`,
-            iconURL: commits[0].author.avatar_url,
+            iconURL: latest.author.avatar_url,
         })
         .setDescription(`${getChangeLog(commits, size)}`)
         .setTimestamp(Date.parse(latest.timestamp))
         .setFooter({
-            text: `⚡ Edited by @${commits[0].author.username}`,
+            text: `⚡ Edited by @${latest.author.username}`,
         })
 }
 
