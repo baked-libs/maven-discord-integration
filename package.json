@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "build": "ncc build src -o dist -m",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No tests have been implemented yet!\" && exit 0"
   },
   "repository": {
     "type": "git",
