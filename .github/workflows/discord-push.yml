@@ -11,3 +11,23 @@ jobs:
       with:
         id: ${{ secrets.DISCORD_WEBHOOK_ID }}
         token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+  CI:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+    - name: Dependencies and Build
+      run: npm install && npm run build
+    # There do not appear to be any tests defined at the moment,
+    # but if any are implemented this will run them.
+    - name: Test
+      run: npm run test
