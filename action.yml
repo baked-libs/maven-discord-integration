@@ -1,8 +1,5 @@
 name: 'Classic Discord Webhook'
 description: 'This GitHub Action sends simple discord messages for your commits.'
-branding:
-  icon: activity
-  color: gray-dark
 
 inputs:
   id:
@@ -14,4 +11,8 @@ inputs:
 
 runs:
   using: 'node16'
-  main: './dist/index.js'
+  main: 'src/index.js'
+  
+branding:
+  icon: activity
+  color: gray-dark

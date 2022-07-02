@@ -1,7 +1,7 @@
 const core = require('@actions/core')
 const github = require('@actions/github')
 
-const webhook = require('./discord.js')
+const webhook = require('../src/discord.js')
 
 async function run() {
   const payload = github.context.payload

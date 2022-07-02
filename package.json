@@ -4,8 +4,7 @@
   "description": "This GitHub Action can produce fancy and more meaningful discord messages for your commits.",
   "main": "src/index.js",
   "scripts": {
-    "build": "ncc build src -o dist -m",
-    "test": "echo \"No tests have been implemented yet!\" && exit 0"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
@@ -26,11 +25,8 @@
   "dependencies": {
     "@actions/core": "^1.2.3",
     "@actions/github": "^2.1.1",
-    "child-process-promise": "^2.2.1",
     "discord.js": "^13.6.0",
+    "child-process-promise": "^2.2.1",
     "xml-library": "0.2.0"
-  },
-  "devDependencies": {
-    "@vercel/ncc": "^0.34.0"
   }
 }

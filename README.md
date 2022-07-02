@@ -20,7 +20,7 @@ Thanks to all **Sponsors on GitHub** !
 
 
 ## Setup
-Setup this code on your repository's `.github/workflows/` in a file like `discord-push.yml` and push the changes:
+Setup this code on your  `.github/workflows/` and name it want you want like `discord-push.yml` and push that. 
 ```yml
 name: Discord Webhook
 on: [push]
@@ -45,11 +45,11 @@ You can see the example file at [/.github/workflows/discord-push.yml](/.github/w
 | **Required** — This is the id of your Discord webhook, if you copy the webhook url, this will be the first part of it. | **Required** — Your Discord webhook token, it's the second part of the url. |
 
 
-### Need more help ? [See this post on DEV](https://dev.to/mrrobot/follow-your-repository-from-discord-52ge)
+### Need more help ? [See this post on DEV](https://dev.to/mrrobot/follow-your-repository-from-discord-52ge) 
 
 [![Badge forked from](https://img.shields.io/badge/Forked-from%20Slimefun%2Fdiscordwebhook-black?logo=GitHub&style=for-the-badge)](https://github.com/Slimefun/discord-webhook)
 
 
-### Notable documentations
+### Notable documentations 
 
 [How to get Commits on GitHub](https://docs.github.com/en/rest/reference/commits#get-a-commit)
