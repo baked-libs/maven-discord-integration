@@ -10,7 +10,8 @@ async function run() {
   const size = commits.length
   const branch = payload.ref.split('/')[payload.ref.split('/').length - 1]
 
-  console.log(`Received payload ${JSON.stringify(payload, null, 2)}`)
+  //console.log(`Received payload ${JSON.stringify(payload, null, 2)}`)
+  console.log(`Received payload.`)
 
   console.log(`Received ${commits.length}/${size} commits...`)
 
