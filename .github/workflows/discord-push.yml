@@ -27,7 +27,3 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: Dependencies and Build
         run: npm install && npm run build
-      # There do not appear to be any tests defined at the moment,
-      # but if any are implemented this will run them.
-      - name: Test
-        run: npm run test
