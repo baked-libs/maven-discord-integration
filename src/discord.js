@@ -34,6 +34,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size, in_thread) =
 
 function createEmbed(repo, branch, url, commits, size, in_thread) {
     console.log('Constructing Embed...')
+    console.log(in_thread)
     const latest = commits[0]
     console.log(latest)
     return new MessageEmbed()
