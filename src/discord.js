@@ -16,7 +16,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size, in_thread) =
                     id: id,
                     token: token,
                     // If in_thread is not empty, use it as the thread ID
-                    threadId: in_thread
+                    thread_id: in_thread
                 })
             }            
         } catch (error) {
