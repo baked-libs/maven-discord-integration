@@ -7,6 +7,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size, in_thread) =
         console.log('Preparing Webhook...')
         try {
             console.log('Checking in_thread input...')
+            console.log(in_thread)
             // If in_thread is empty, ignore
             if (in_thread === '' || in_thread === null) {
                 client = new WebhookClient({id: id, token: token})
@@ -16,7 +17,7 @@ module.exports.send = (id, token, repo, branch, url, commits, size, in_thread) =
                     id: id,
                     token: token,
                     // If in_thread is not empty, use it as the thread ID
-                    thread_id: in_thread
+                    threadId: in_thread
                 })
             }            
         } catch (error) {
