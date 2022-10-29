@@ -7,7 +7,6 @@ module.exports.send = (id, token, repo, branch, url, commits, size, in_thread) =
         console.log('Preparing Webhook...')
         try {
             console.log('Checking in_thread input...')
-            console.log(in_thread)
             // If in_thread is empty, ignore
             if (in_thread === '' || in_thread === null) {
                 client = new WebhookClient({id: id, token: token})
@@ -26,13 +25,13 @@ module.exports.send = (id, token, repo, branch, url, commits, size, in_thread) =
             return
         }
 
-        client.send({embeds: [createEmbed(repo, branch, url, commits, size)]}).then(() => {
+        client.send({embeds: [createEmbed(repo, branch, url, commits, size, in_thread)]}).then(() => {
             console.log('Successfully sent the message!')
             resolve()
         }, reject)
     })
 
-function createEmbed(repo, branch, url, commits, size) {
+function createEmbed(repo, branch, url, commits, size, in_thread) {
     console.log('Constructing Embed...')
     const latest = commits[0]
     console.log(latest)
