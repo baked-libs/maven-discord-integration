@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
     - name: Run Discord Webhook
       uses: Mist3r-Robot/classic-discord-webhook@main
       with:
@@ -41,9 +41,9 @@ jobs:
 You can see the example file at [/.github/workflows/discord-push.yml](/.github/workflows/discord-push.yml)
 ## Inputs
 
-| `id` | `token` |
-|:-----------:|:----------------------------------------------------------:|
-| **Required** — This is the id of your Discord webhook, if you copy the webhook url, this will be the first part of it. | **Required** — Your Discord webhook token, it's the second part of the url. |
+| `id` | `token` | `in_thread`|
+|:-----------:|:----------------------------------------------------------:|:----------------------------------------------------------:|
+| **Required** — This is the id of your Discord webhook, if you copy the webhook url, this will be the first part of it. | **Required** — Your Discord webhook token, it's the second part of the url. | Not required — if you want to send the message in a thread, you can specify the thread id here. |
 
 
 ### Need more help ? [See this post on DEV](https://dev.to/mrrobot/follow-your-repository-from-discord-52ge)
